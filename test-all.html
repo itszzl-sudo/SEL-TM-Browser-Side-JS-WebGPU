@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+/* CSS选择器测试样式 */
+.card { padding: 10px; margin: 5px; }
+.highlight { background: #ffeb3b; }
+#main-container { border: 2px solid #2196f3; }
+[data-active] { cursor: pointer; }
+[disabled] { cursor: not-allowed; }
+</style>
+</head>
+<body>
+
+<!-- ==================== 布局系统 ==================== -->
+
+<!-- Block 标准文档流 -->
+<div style="display: block; border-radius:12px; opacity:0.9; background:linear-gradient(#1e88e5,#42a5f5); box-shadow:0 6px 16px rgba(0,0,0,0.25); padding: 16px 20px; margin: 10px 0;">Block 标准文档流</div>
+
+<!-- Flex 弹性布局 -->
+<div style="display: flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:10px; border-radius:12px; background:linear-gradient(#424242,#616161); padding: 12px; margin: 10px 0;">
+<div style="flex:1 1 200px; border-radius:8px; background:linear-gradient(#66bb6a,#a5d6a7); padding: 10px;">Flex项目1</div>
+<div style="flex:2 1 200px; border-radius:8px; background:linear-gradient(#42a5f5,#90caf9); padding: 10px;">Flex项目2</div>
+<div style="flex:1 1 200px; border-radius:8px; background:linear-gradient(#ab47bc,#ce93d8); padding: 10px;">Flex项目3</div>
+</div>
+
+<!-- Grid 网格布局 -->
+<div style="display: grid; grid-template-columns:repeat(3,1fr); gap:10px; border-radius:12px; background:linear-gradient(#5d4037,#795548); padding: 12px; margin: 10px 0;">
+<div style="grid-column:1/3; border-radius:8px; background:linear-gradient(#ff7043,#ffab91); padding: 15px;">Grid跨2列</div>
+<div style="grid-row:1/3; border-radius:8px; background:linear-gradient(#26c6da,#80deea); padding: 15px;">Grid跨2行</div>
+<div style="border-radius:8px; background:linear-gradient(#ec407a,#f48fb1); padding: 15px;">Grid项目</div>
+<div style="border-radius:8px; background:linear-gradient(#9c27b0,#ba68c8); padding: 15px;">Grid项目</div>
+</div>
+
+<!-- position: absolute 绝对定位 -->
+<div style="position: relative; height:100px; margin: 10px 0;">
+<div style="position: absolute; top: 10px; left: 20px; border-radius:8px; background:linear-gradient(#9c27b0,#e91e63); box-shadow:0 4px 12px rgba(0,0,0,0.3); padding: 10px 14px;">Absolute 绝对定位</div>
+</div>
+
+<!-- position: fixed 固定定位 -->
+<div style="position: fixed; top: 100px; right: 20px; border-radius:10px; background:linear-gradient(#ff5722,#ff9800); box-shadow:0 4px 12px rgba(0,0,0,0.3); padding: 8px 16px;">Fixed 固定定位</div>
+
+<!-- position: relative 相对定位 -->
+<div style="position: relative; top: 20px; left: 30px; border-radius:10px; background:linear-gradient(#00bcd4,#26c6da); box-shadow:0 4px 12px rgba(0,0,0,0.2); padding: 10px 14px; margin: 10px 0;">Relative 相对定位</div>
+
+<!-- float 浮动布局 -->
+<div style="overflow:hidden; border-radius:8px; background:linear-gradient(#78909c,#90a4ae); padding: 10px; margin: 10px 0;">
+<div style="float: left; border-radius:6px; background:linear-gradient(#4caf50,#81c784); padding: 8px 12px; margin: 4px;">Float 左</div>
+<div style="float: right; border-radius:6px; background:linear-gradient(#ff9800,#ffb74d); padding: 8px 12px; margin: 4px;">Float 右</div>
+</div>
+
+<!-- display: inline 行内元素 -->
+<div style="border-radius:8px; background:linear-gradient(#607d8b,#78909c); padding: 10px; margin: 10px 0;">
+<span style="display: inline; border-radius:4px; background:linear-gradient(#3f51b5,#5c6bc0); padding: 4px 8px; margin: 2px;">Inline 1</span>
+<span style="display: inline; border-radius:4px; background:linear-gradient(#009688,#4db6ac); padding: 4px 8px; margin: 2px;">Inline 2</span>
+<span style="display: inline; border-radius:4px; background:linear-gradient(#e91e63,#f48fb1); padding: 4px 8px; margin: 2px;">Inline 3</span>
+</div>
+
+<!-- ==================== 样式系统 ==================== -->
+
+<!-- Border 边框测试 -->
+<div style="border: 4px solid #e91e63; border-radius:16px; background:linear-gradient(#f48fb1,#f8bbd9); padding: 12px 16px; margin: 10px 0;">Border 边框｜4px solid #e91e63</div>
+
+<!-- 多重边框测试 -->
+<div style="border: 2px solid #2196f3; border-radius:12px; outline: 4px dashed #ff9800; background:linear-gradient(#64b5f6,#90caf9); padding: 12px 16px; margin: 10px 0;">多重边框｜outline虚线</div>
+
+<!-- Transform 变换测试 -->
+<div style="transform: translate(20px, 5px) rotate(-5deg); border-radius:10px; background:linear-gradient(#00bcd4,#26c6da); padding: 10px 14px; margin: 15px 0;">Transform translate+rotate</div>
+
+<!-- 多重阴影测试 -->
+<div style="border-radius:16px; background:linear-gradient(#4caf50,#81c784); box-shadow: 0 4px 8px rgba(0,0,0,0.2), 0 8px 16px rgba(0,0,0,0.15), inset 0 2px 4px rgba(255,255,255,0.3), 0 0 20px rgba(76,175,80,0.4); padding: 14px 18px; margin: 10px 0;">多重阴影｜外阴影+内阴影+发光</div>
+
+<!-- z-index 层叠测试 -->
+<div style="position: relative; height: 120px; margin: 10px 0;">
+<div style="position: absolute; top: 10px; left: 10px; z-index: 1; border-radius:8px; background:linear-gradient(#f44336,#e57373); padding: 12px;">Z-Index 1</div>
+<div style="position: absolute; top: 30px; left: 40px; z-index: 3; border-radius:8px; background:linear-gradient(#2196f3,#64b5f6); padding: 12px;">Z-Index 3</div>
+<div style="position: absolute; top: 50px; left: 70px; z-index: 5; border-radius:8px; background:linear-gradient(#4caf50,#81c784); padding: 12px;">Z-Index 5</div>
+</div>
+
+<!-- ==================== CSS选择器 ==================== -->
+
+<!-- class 选择器 -->
+<div class="card highlight" style="border-radius:10px; background:linear-gradient(#2196f3,#64b5f6); padding: 10px 14px; margin: 8px 0;">Class选择器｜class="card highlight"</div>
+
+<!-- id 选择器 -->
+<div id="main-container" style="border-radius:10px; background:linear-gradient(#673ab7,#9575cd); padding: 10px 14px; margin: 8px 0;">ID选择器｜id="main-container"</div>
+
+<!-- 属性选择器 -->
+<div data-active="true" style="border-radius:8px; background:linear-gradient(#ff5722,#ff8a65); padding: 10px 14px; margin: 8px 0;">属性选择器｜data-active="true"</div>
+
+<!-- ==================== 交互系统 ==================== -->
+
+<!-- 可点击元素 -->
+<div id="clickable-box" style="border-radius:12px; background:linear-gradient(#9c27b0,#e91e63); box-shadow:0 4px 12px rgba(0,0,0,0.3); padding: 12px 16px; margin: 10px 0; cursor:pointer;">Click Me - 点击测试</div>
+
+<!-- 悬停元素 -->
+<div id="hover-box" style="border-radius:12px; background:linear-gradient(#00bcd4,#26c6da); padding: 12px 16px; margin: 10px 0; transition: all 0.3s;">Hover Me - 悬停测试</div>
+
+<!-- ==================== 响应式布局 ==================== -->
+
+<!-- 响应式测试 -->
+<div id="responsive-box" style="border-radius:12px; background:linear-gradient(#3f51b5,#7986cb); padding: 12px 16px; margin: 10px 0;">响应式测试｜当前宽度自适应</div>
+
+<!-- DPR适配测试 -->
+<div style="border-radius:8px; background:linear-gradient(#00acc1,#4dd0e1); padding: 10px 14px; margin: 8px 0;">DPR适配｜高清屏幕字体优化</div>
+
+<!-- ==================== 完整Flex特性 ==================== -->
+
+<div style="display: flex; flex-direction:column; gap:8px; border-radius:12px; background:linear-gradient(#37474f,#546e7a); padding: 12px; margin: 10px 0;">
+<div style="border-radius:8px; background:linear-gradient(#66bb6a,#a5d6a7); padding: 10px;">Flex column项目1</div>
+<div style="border-radius:8px; background:linear-gradient(#42a5f5,#90caf9); padding: 10px;">Flex column项目2</div>
+<div style="border-radius:8px; background:linear-gradient(#ab47bc,#ce93d8); padding: 10px;">Flex column项目3</div>
+</div>
+
+<!-- 字体排版测试 -->
+<div style="border-radius:12px; background:linear-gradient(#ffcc80,#ffe0b2); padding: 14px; margin: 10px 0; font-family:'Microsoft YaHei',sans-serif;">
+<div style="font-size:20px; font-weight:bold; line-height:1.8;">字体测试20px Bold</div>
+<div style="font-size:16px; line-height:1.5; letter-spacing:2px;">字体测试16px letter-spacing:2px</div>
+<div style="font-size:14px; text-align:center; font-style:italic;">字体测试14px italic center</div>
+</div>
+
+<!-- 渐变背景测试 -->
+<div style="border-radius:16px; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 16px 20px; margin: 10px 0;">
+<div style="color:white; font-size:18px;">线性渐变135deg</div>
+</div>
+
+<div style="border-radius:16px; background:linear-gradient(to right, #f093fb 0%, #f5576c 50%, #4facfe 100%); padding: 16px 20px; margin: 10px 0;">
+<div style="color:white; font-size:18px;">多色渐变</div>
+</div>
+
+<!-- 不透明度测试 -->
+<div style="display:flex; gap:10px; margin: 10px 0;">
+<div style="flex:1; border-radius:8px; background:linear-gradient(#f44336,#ef5350); padding: 12px; opacity:1.0;"><div style="color:white;">100%</div></div>
+<div style="flex:1; border-radius:8px; background:linear-gradient(#f44336,#ef5350); padding: 12px; opacity:0.7;"><div style="color:white;">70%</div></div>
+<div style="flex:1; border-radius:8px; background:linear-gradient(#f44336,#ef5350); padding: 12px; opacity:0.4;"><div style="color:white;">40%</div></div>
+<div style="flex:1; border-radius:8px; background:linear-gradient(#f44336,#ef5350); padding: 12px; opacity:0.1;"><div>10%</div></div>
+</div>
+
+</body>
+</html>
