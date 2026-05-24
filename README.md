@@ -4,22 +4,78 @@ A self-evolving constrained layout Turing machine (SEL-TM) browser-side implemen
 
 ## Features
 
-- **Cold Path (JavaScript)**: W3C-compliant layout algorithms
-  - Standard Flex layout with multi-line wrap support
-  - Standard Grid layout with row/column span
-  - Block layout with standard Box model
+### Cold Path (JavaScript) - W3C-Compliant Layout
 
-- **Hot Path (WebGPU)**: GPU-accelerated rendering
-  - Gradient backgrounds
-  - Border radius / rounded corners
-  - Box shadows
-  - Hover effects
-  - Smooth animations
-  - Text rendering via texture
+- **Standard Flex Layout**: Multi-line wrap, justify-content, align-items, flex-grow/shrink/basis
+- **Standard Grid Layout**: Row/column span, grid template
+- **Block Layout**: Standard Box model with margin/padding/border
+- **Position Layout**: absolute, relative, fixed positioning
+- **Float Layout**: left/right floating elements
+- **Inline Layout**: inline/inline-block elements
+- **Overflow Handling**: Hidden, scroll, auto overflow modes
+- **z-index Layering**: Proper stacking context management
 
-- **Memory System**: IndexedDB-based persistence
-  - Long-term memory (LTM)
-  - Short-term memory (STM)
+### Hot Path (WebGPU) - GPU-Accelerated Rendering
+
+- Gradient backgrounds (linear-gradient)
+- Border radius / rounded corners
+- Box shadows (single and multiple)
+- Hover effects and animations
+- Text rendering via texture
+- Opacity and blend modes
+
+### Advanced CSS Selector System
+
+- Class selectors (.class)
+- ID selectors (#id)
+- Attribute selectors ([attr], [attr=value])
+- Pseudo-classes (:hover, :active, :focus)
+
+### Interactive System
+
+- Click events
+- Hover events
+- Input events
+- Keyboard events
+- Event logging
+
+### Responsive Design
+
+- @media queries (min-width, max-width)
+- Orientation detection (landscape/portrait)
+- DPR adaptation for high-DPI screens
+- Responsive width calculation
+
+### Typography
+
+- Font-family parsing
+- Font-size units (px, em, rem, %)
+- Line-height support
+- Letter-spacing
+- Text-align (left, center, right, justify)
+- Custom font loading via @font-face
+
+### Media Resources
+
+- Image loading with caching
+- Video element support
+- Canvas element support
+- Lazy loading with IntersectionObserver
+- Image preloading
+
+### Performance Optimization
+
+- Virtual scrolling for large lists
+- OffscreenCanvas caching
+- FPS monitoring
+- Performance metrics reporting
+
+### Browser API Integration
+
+- ResizeObserver for responsive updates
+- Fullscreen API
+- Visibility computation
+- IntersectionObserver for lazy loading
 
 ## Quick Start
 
@@ -41,32 +97,8 @@ Double-click `SEL-TM-WebGPU-Edge.lnk` to launch Edge with WebGPU enabled.
 
 - `index.html` - SEL-TM engine host page
 - `demo.html` - External page to be rendered
-
-## Supported CSS Properties
-
-### Flex Layout
-```css
-display: flex;
-flex-wrap: wrap;
-justify-content: space-evenly;
-flex-basis: 100px;
-flex-grow: 1;
-```
-
-### Grid Layout
-```css
-display: grid;
-grid-column-span: 2;
-grid-row-span: 2;
-```
-
-### Visual Effects
-```css
-border-radius: 12px;
-box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-background: linear-gradient(#1e88e5, #42a5f5);
-opacity: 0.9;
-```
+- `使用说明.md` - Chinese documentation
+- `README.md` - English documentation
 
 ## Architecture
 
@@ -78,24 +110,64 @@ opacity: 0.9;
 │  ┌─────────────────────┐        │  ┌─────────────────────┐
 │  │ W3C Layout State    │        │  │ GPU Render Pipeline │
 │  │ Machine             │───────▶│  │ - Gradients         │
-│  │ - Flex              │ tasks  │  │ - Shadows           │
-│  │ - Grid              │        │  │ - Animations         │
-│  │ - Block             │        │  │ - Textures           │
+│  │ - Flex/Grid/Block   │        │  │ - Shadows           │
+│  │ - Position/Float     │        │  │ - Animations        │
 │  └─────────────────────┘        │  └─────────────────────┘
-├─────────────────────────────────┤
-│  IndexedDB Memory              │
-│  ┌────────────┬────────────┐   │
-│  │ Long-term  │ Short-term │   │
-│  │ Memory (K) │ Memory (L)  │   │
-│  └────────────┴────────────┘   │
+│  ┌─────────────────────┐        │
+│  │ Style System        │        │
+│  │ - Border/Transform  │        │
+│  │ - Multiple Shadows  │        │
+│  └─────────────────────┘        │
+│  ┌─────────────────────┐        │
+│  │ Selector Engine     │        │
+│  │ - Class/ID/Attr     │        │
+│  └─────────────────────┘        │
+│  ┌─────────────────────┐        │
+│  │ Interaction System  │        │
+│  │ - Click/Input/Key   │        │
+│  └─────────────────────┘        │
 └─────────────────────────────────┘
 ```
 
-## Browser Compatibility
+## Memory System
 
-- Chrome/Edge 113+ (WebGPU support required)
-- Firefox Nightly (WebGPU behind flag)
-- Safari Technology Preview
+- **IndexedDB**: Browser-side persistent storage
+- **LTM (Long-Term Memory)**: Persistent data
+- **STM (Short-Term Memory)**: Session data
+
+## Supported CSS Properties
+
+### Layout
+```css
+display: flex; flex-wrap: wrap; justify-content: space-evenly;
+display: grid; grid-column-span: 2; grid-row-span: 2;
+position: absolute; float: left; display: inline;
+overflow: hidden; z-index: 10;
+```
+
+### Visual Effects
+```css
+border-radius: 12px;
+border: 3px solid #e91e63;
+box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+background: linear-gradient(#1e88e5, #42a5f5);
+transform: translate(30px, 10px) rotate(15deg) scale(1.1);
+opacity: 0.9;
+```
+
+### Typography
+```css
+font-family: "Custom Font", system-ui;
+font-size: 16px; line-height: 1.5;
+letter-spacing: 1px;
+text-align: center;
+```
+
+### Responsive
+```css
+@media (min-width: 768px) { ... }
+@media (orientation: landscape) { ... }
+```
 
 ## License
 
