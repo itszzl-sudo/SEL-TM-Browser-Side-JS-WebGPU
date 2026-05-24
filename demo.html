@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<body>
+<!-- 标准 Block 文档流（完整样式测试） -->
+<div style="display: block; border-radius:12px; opacity:0.9; background:linear-gradient(#1e88e5,#42a5f5); box-shadow:0 6px 16px rgba(0,0,0,0.25);">Block 标准文档流｜渐变背景+阴影+圆角+透明效果</div>
+
+<!-- 完整 Flex 高阶特性测试（wrap多行换行+全部对齐+弹性系数） -->
+<div style="display: flex; flex-wrap:wrap; justify-content: space-evenly; align-items: center; gap:15px;">Flex容器｜自动换行布局容器</div>
+<div style="display: flex; flex-basis:100px; flex-grow:1; flex-shrink:1; border-radius:10px; opacity:0.92; background:linear-gradient(#26a69a,#4db6ac);">Flex自适应节点1</div>
+<div style="display: flex; flex-basis:100px; flex-grow:2; flex-shrink:2; border-radius:10px; opacity:0.85; background:linear-gradient(#00695c,#26a69a);">Flex高权重节点2</div>
+<div style="display: flex; flex-basis:100px; flex-grow:1; flex-shrink:1; border-radius:10px; background:linear-gradient(#424242,#616161);">Flex换行测试节点3</div>
+
+<!-- Grid 高阶特性测试（行列合并+minmax自适应） -->
+<div style="display: grid; border-radius:10px; background:linear-gradient(#ff9800,#ffb74d); box-shadow:0 4px 12px rgba(0,0,0,0.2);">Grid基础单元格1</div>
+<div style="display: grid; border-radius:10px; background:linear-gradient(#f57c00,#ff9800);">Grid基础单元格2</div>
+<div style="display: grid; grid-column-span:2; border-radius:12px; opacity:0.95; background:linear-gradient(#e65100,#f57c00);">Grid跨2列合并单元格｜超长文本自动换行，适配minmax自适应列宽</div>
+<div style="display: grid; grid-row-span:2; border-radius:10px; background:linear-gradient(#ff5722,#ff9800);">Grid跨2行合并单元格｜高阶网格特性测试</div>
+<div style="display: grid; border-radius:10px; opacity:0.9;">Grid自适应单元格3</div>
+<div style="display: grid; border-radius:10px; opacity:0.9;">Grid自适应单元格4</div>
+</body>
+</html>
