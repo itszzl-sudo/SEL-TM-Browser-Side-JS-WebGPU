@@ -1780,10 +1780,20 @@ class SELColdPath {
     const textTasks = [];
     const styleMap = [];
 
+    // 先去除 head、style、body 等标签，只保留实际内容
+    let content = htmlText;
+    content = content.replace(/<head[\s\S]*?<\/head>/gi, '');
+    content = content.replace(/<style[\s\S]*?<\/style>/gi, '');
+    content = content.replace(/<body[^>]*>/gi, '');
+    content = content.replace(/<\/body>/gi, '');
+    content = content.replace(/<!DOCTYPE[^>]*>/gi, '');
+    content = content.replace(/<html[^>]*>/gi, '');
+    content = content.replace(/<\/html>/gi, '');
+
     const divReg = /<div([^>]*)>([\s\S]*?)<\/div>/gi;
     let match;
 
-    while ((match = divReg.exec(htmlText)) !== null) {
+    while ((match = divReg.exec(content)) !== null) {
       const styleStr = match[1] || '';
       const text = match[2].trim();
       // 解析完整的内联属性（style, class, id）
