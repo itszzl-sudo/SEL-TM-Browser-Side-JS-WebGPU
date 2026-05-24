@@ -402,6 +402,11 @@ class SELColdPath {
 
   // 解析完整内联 style 字符串（包含 class/id）
   parseFullStyle(styleStr) {
+    // 如果直接传入的是内联样式字符串（不含标签属性），直接解析
+    if (!styleStr.includes('=') || (styleStr.includes(':') && !styleStr.includes('style='))) {
+      return this.parseStyle(styleStr);
+    }
+    
     const attrs = this.parseInlineAttributes(styleStr);
     const mergedStyle = {};
 
