@@ -93,6 +93,7 @@ html, body {
   <div class="debug-item"><span class="debug-label">渲染帧率</span><span id="fps-count" class="debug-value">0 FPS</span></div>
   <div class="debug-item"><span class="debug-label">布局类型</span><span id="layout-type" class="debug-value">加载中</span></div>
   <div class="debug-item"><span class="debug-label">hover节点</span><span id="hover-node" class="debug-value">无</span></div>
+  <div class="debug-item"><span class="debug-label">滚动偏移</span><span id="scroll-offset" class="debug-value">(0, 0)</span></div>
 </div>
 
 <!-- 控制按钮组 -->
@@ -333,6 +334,41 @@ class SELColdPath {
     };
   }
 
+  // Padding 解析
+  parsePadding(paddingStr) {
+    if (!paddingStr) return { top: 0, right: 0, bottom: 0, left: 0 };
+    const vals = paddingStr.split(' ').map(v => parseFloat(v) || 0);
+    switch (vals.length) {
+      case 1: return { top: vals[0], right: vals[0], bottom: vals[0], left: vals[0] };
+      case 2: return { top: vals[0], right: vals[1], bottom: vals[0], left: vals[1] };
+      case 3: return { top: vals[0], right: vals[1], bottom: vals[2], left: vals[1] };
+      case 4: return { top: vals[0], right: vals[1], bottom: vals[2], left: vals[3] };
+      default: return { top: 0, right: 0, bottom: 0, left: 0 };
+    }
+  }
+
+  // Margin 解析
+  parseMargin(marginStr) {
+    if (!marginStr) return { top: 0, right: 0, bottom: 0, left: 0 };
+    const vals = marginStr.split(' ').map(v => parseFloat(v) || 0);
+    switch (vals.length) {
+      case 1: return { top: vals[0], right: vals[0], bottom: vals[0], left: vals[0] };
+      case 2: return { top: vals[0], right: vals[1], bottom: vals[0], left: vals[1] };
+      case 3: return { top: vals[0], right: vals[1], bottom: vals[2], left: vals[1] };
+      case 4: return { top: vals[0], right: vals[1], bottom: vals[2], left: vals[3] };
+      default: return { top: 0, right: 0, bottom: 0, left: 0 };
+    }
+  }
+
+  // 响应式宽度计算（支持媒体查询逻辑）
+  calcResponsiveWidth(baseWidth) {
+    const width = window.innerWidth;
+    if (width < 480) return Math.max(baseWidth * 0.9, 300);  // 移动端
+    if (width < 768) return Math.max(baseWidth * 0.95, 400); // 平板
+    if (width < 1200) return baseWidth * 0.98;               // 桌面
+    return baseWidth;                                         // 大屏幕
+  }
+
   // 标准Block文档流（完整样式适配）
   calcStandardBox(style, index) {
     const baseX = 30;
@@ -340,20 +376,30 @@ class SELColdPath {
     const gap = 20;
     const radius = parseFloat(style['border-radius']) || 8;
     const opacity = parseFloat(style['opacity']) || 1;
+    
+    // 解析 padding 和 margin
+    const padding = this.parsePadding(style['padding']);
+    const margin = this.parseMargin(style['margin']);
+    
     const bgColor = style['background-color'] ? this.hexToRgba(style['background-color'], opacity) : [0.15, 0.45, 0.75, opacity];
     const gradient = this.parseGradient(style['background']);
     const shadow = this.parseBoxShadow(style['box-shadow']);
+    
+    // 响应式布局适配
+    const responsiveW = this.calcResponsiveWidth(window.innerWidth - 60 - margin.left - margin.right);
 
     return {
-      x: baseX,
-      y: baseY + index * 90,
-      w: window.innerWidth - 60,
+      x: baseX + margin.left,
+      y: baseY + index * (90 + margin.top + margin.bottom),
+      w: responsiveW,
       h: 70,
       color: bgColor,
       gradient,
       shadow,
       radius: radius,
       opacity,
+      padding,
+      margin,
       type: 'block'
     };
   }
@@ -1037,6 +1083,43 @@ async function initController(coldPath, gpuPath) {
 // ==============================================
 // 全局启动入口
 // ==============================================
+
+// 滚动支持函数
+function initScrollSupport(gpuPath) {
+  let scrollX = 0;
+  let scrollY = 0;
+  
+  // 鼠标滚轮事件
+  document.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    scrollY += e.deltaY * 0.5;
+    scrollX += e.deltaX * 0.5;
+    
+    // 限制滚动范围
+    scrollY = Math.max(0, Math.min(scrollY, 1000));
+    scrollX = Math.max(0, Math.min(scrollX, 500));
+    
+    // 更新滚动位置到全局状态
+    SEL_TM.scrollOffset = { x: scrollX, y: scrollY };
+    document.getElementById('scroll-offset').innerText = `(${Math.round(scrollX)}, ${Math.round(scrollY)})`;
+  });
+  
+  // 触摸滚动支持
+  let touchStartY = 0;
+  document.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY;
+  });
+  
+  document.addEventListener('touchmove', (e) => {
+    e.preventDefault();
+    const deltaY = touchStartY - e.touches[0].clientY;
+    scrollY += deltaY;
+    scrollY = Math.max(0, Math.min(scrollY, 1000));
+    SEL_TM.scrollOffset = { x: scrollX, y: scrollY };
+    touchStartY = e.touches[0].clientY;
+  });
+}
+
 async function bootstrap() {
   const canvas = document.getElementById('sel-tm-canvas');
 
@@ -1051,6 +1134,16 @@ async function bootstrap() {
 
   gpuPath.renderLoop();
   initController(coldPath, gpuPath);
+  
+  // 添加窗口 resize 响应
+  window.addEventListener('resize', async () => {
+    gpuPath.resize();
+    await coldPath.parseHTML(SEL_TM.rawHtmlContent);
+    console.log('🔄 响应窗口resize，布局已重新计算');
+  });
+  
+  // 添加滚动支持
+  initScrollSupport(gpuPath);
 
   console.log('✅ SEL-TM 高阶完整版引擎启动成功｜全特性布局+交互+动画就绪');
 }
