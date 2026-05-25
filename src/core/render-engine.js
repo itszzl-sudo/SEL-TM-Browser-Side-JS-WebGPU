@@ -196,14 +196,16 @@ export class SELWebGPU {
     if (this.layoutTasks.length > 0) {
       // 渲染阴影
       const shadowData = this.generateShadowVertexData(this.layoutTasks);
-      const shadowBuf = this.device.createBuffer({
-        size: shadowData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      this.device.queue.writeBuffer(shadowBuf, 0, shadowData);
-      pass.setPipeline(this.layoutPipeline);
-      pass.setVertexBuffer(0, shadowBuf);
-      pass.draw(this.layoutTasks.length * 6);
+      if (shadowData.byteLength > 0) {
+        const shadowBuf = this.device.createBuffer({
+          size: shadowData.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+        });
+        this.device.queue.writeBuffer(shadowBuf, 0, shadowData);
+        pass.setPipeline(this.layoutPipeline);
+        pass.setVertexBuffer(0, shadowBuf);
+        pass.draw(shadowData.length / 26);
+      }
 
       // 渲染边框
       const borderData = this.generateBorderVertices(this.layoutTasks);
@@ -220,14 +222,16 @@ export class SELWebGPU {
 
       // 渲染布局色块
       const vertexData = this.generateAdvancedVertexData(this.layoutTasks);
-      const vertexBuf = this.device.createBuffer({
-        size: vertexData.byteLength,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-      });
-      this.device.queue.writeBuffer(vertexBuf, 0, vertexData);
-      pass.setPipeline(this.layoutPipeline);
-      pass.setVertexBuffer(0, vertexBuf);
-      pass.draw(this.layoutTasks.length * 6);
+      if (vertexData.byteLength > 0) {
+        const vertexBuf = this.device.createBuffer({
+          size: vertexData.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+        });
+        this.device.queue.writeBuffer(vertexBuf, 0, vertexData);
+        pass.setPipeline(this.layoutPipeline);
+        pass.setVertexBuffer(0, vertexBuf);
+        pass.draw(vertexData.length / 26);
+      }
     }
 
     pass.end();
