@@ -1175,19 +1175,25 @@ class SELColdPath {
     const transform = this.parseTransform(style['transform']);
 
     // absolute 相对于最近的定位祖先元素
-    let x = containerBounds?.x || 30;
-    let y = containerBounds?.y || 30;
+    const baseX = containerBounds?.x || 30;
+    const baseY = containerBounds?.y || 30;
+    const containerW = containerBounds?.w || (window.innerWidth - 60);
+    const containerH = containerBounds?.h || window.innerHeight;
+
+    let x = baseX;
+    let y = baseY;
+    let w = 150;
+    let h = 70;
 
     // 根据偏移量计算位置
-    if (style['left'] !== undefined) x = 30 + offset.left;
-    if (style['top'] !== undefined) y = offset.top;
-    if (style['right'] !== undefined) x = window.innerWidth - 60 - offset.right - 150;
-    if (style['bottom'] !== undefined) y = window.innerHeight - offset.bottom - 70;
+    if (style['left'] !== undefined) x = baseX + offset.left;
+    if (style['top'] !== undefined) y = baseY + offset.top;
+    if (style['right'] !== undefined) x = baseX + containerW - offset.right - w;
+    if (style['bottom'] !== undefined) y = baseY + containerH - offset.bottom - h;
 
     return {
       x, y,
-      w: 150,
-      h: 70,
+      w, h,
       color: bgColor,
       gradient,
       shadow,
@@ -1255,11 +1261,17 @@ class SELColdPath {
     const border = this.parseFullBorder(style);
     const transform = this.parseTransform(style['transform']);
 
+    // 如果没有基础布局，使用默认值
+    const baseX = baseLayout?.x || 30;
+    const baseY = baseLayout?.y || 30;
+    const baseW = baseLayout?.w || (window.innerWidth - 60);
+    const baseH = baseLayout?.h || 70;
+
     return {
-      x: baseLayout.x + offset.left,
-      y: baseLayout.y + offset.top,
-      w: baseLayout.w,
-      h: baseLayout.h,
+      x: baseX + offset.left,
+      y: baseY + offset.top,
+      w: baseW,
+      h: baseH,
       color: bgColor,
       gradient,
       shadow,
@@ -1297,7 +1309,7 @@ class SELColdPath {
       y = prevFloatState?.currentY || 30;
     } else if (float === 'right') {
       // 右浮动，从右到左排列
-      x = window.innerWidth - 60 - (prevFloatState?.leftEdge || window.innerWidth - 30) + itemW;
+      x = window.innerWidth - 60 - itemW - (prevFloatState?.leftEdge || 0);
       y = prevFloatState?.currentY || 30;
     } else {
       // 无浮动，正常文档流
@@ -1306,14 +1318,20 @@ class SELColdPath {
     }
 
     // 检查是否需要换行
-    let rightEdge = x + itemW + 10;
-    let leftEdge = x - 10;
+    let rightEdge = float === 'left' ? x + itemW + 10 : (prevFloatState?.rightEdge || 30);
+    let leftEdge = float === 'right' ? window.innerWidth - 60 - x : (prevFloatState?.leftEdge || 0);
     let currentY = y;
 
-    if (float === 'left' && rightEdge > window.innerWidth - 30) {
+    if (float === 'left' && x + itemW > window.innerWidth - 30) {
       currentY = y + itemH + 10;
       x = 30;
       rightEdge = x + itemW + 10;
+    }
+
+    if (float === 'right' && x < 30) {
+      currentY = y + itemH + 10;
+      x = window.innerWidth - 60 - itemW;
+      leftEdge = window.innerWidth - 60 - x;
     }
 
     return {
@@ -1745,8 +1763,11 @@ class SELColdPath {
     const cellH = 70;
 
     const itemStyle = itemList[index].style;
-    const colSpan = parseInt(itemStyle['grid-column-span']) || 1;
-    const rowSpan = parseInt(itemStyle['grid-row-span']) || 1;
+    
+    // 解析 grid-column 和 grid-row 属性
+    const colSpan = this.parseGridSpan(itemStyle['grid-column']) || 1;
+    const rowSpan = this.parseGridSpan(itemStyle['grid-row']) || 1;
+    
     const radius = parseFloat(itemStyle['border-radius']) || 8;
     const opacity = parseFloat(itemStyle['opacity']) || 1;
     const gradient = this.parseGradient(itemStyle['background']);
@@ -1776,6 +1797,19 @@ class SELColdPath {
       type: 'grid',
       index
     };
+  }
+
+  // 解析 grid-column 和 grid-row 属性
+  parseGridSpan(value) {
+    if (!value) return 1;
+    // 支持格式：'1/3', 'span 2', '2'
+    const spanMatch = value.match(/span\s+(\d+)/i);
+    if (spanMatch) return parseInt(spanMatch[1]) || 1;
+    
+    const slashMatch = value.match(/(\d+)\/(\d+)/);
+    if (slashMatch) return parseInt(slashMatch[2]) - parseInt(slashMatch[1]) || 1;
+    
+    return 1;
   }
 
   // 完整解析入口（支持动态重排+全样式解析）
