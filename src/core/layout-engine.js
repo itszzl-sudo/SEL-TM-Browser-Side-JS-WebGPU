@@ -385,11 +385,12 @@ export class SELColdPath {
 
     // 处理子元素布局
     if (node.children && node.children.length > 0) {
+      const padding = style.padding || { top: 0, right: 0, bottom: 0, left: 0 };
       const childContainer = {
-        x: task.x + (parseFloat(style.paddingLeft) || 0),
-        y: task.y + (parseFloat(style.paddingTop) || 0),
-        width: task.width - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0),
-        height: task.height - (parseFloat(style.paddingTop) || 0) - (parseFloat(style.paddingBottom) || 0)
+        x: task.x + (parseFloat(padding.left) || parseFloat(style.paddingLeft) || 0),
+        y: task.y + (parseFloat(padding.top) || parseFloat(style.paddingTop) || 0),
+        width: task.width - (parseFloat(padding.left) || parseFloat(style.paddingLeft) || 0) - (parseFloat(padding.right) || parseFloat(style.paddingRight) || 0),
+        height: task.height - (parseFloat(padding.top) || parseFloat(style.paddingTop) || 0) - (parseFloat(padding.bottom) || parseFloat(style.paddingBottom) || 0)
       };
 
       if (display === 'flex') {

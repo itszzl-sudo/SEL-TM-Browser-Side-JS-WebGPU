@@ -352,7 +352,7 @@ export class SELWebGPU {
 
     tasks.forEach(task => {
       const border = task.border;
-      if (!border) return;
+      if (!border || typeof border !== 'object' || !border.width || border.width <= 0) return;
 
       const edges = [
         { side: 'top', dir: [0, -1], length: task.width },
@@ -362,8 +362,7 @@ export class SELWebGPU {
       ];
 
       edges.forEach(edge => {
-        const b = border[edge.side] || (typeof border === 'object' ? border : null);
-        if (!b || !b.width || b.width <= 0) return;
+        const b = border;
 
         const x1 = task.x;
         const y1 = task.y;

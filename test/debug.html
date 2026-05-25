@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>调试测试</title>
+  <style>
+    body {
+      font-family: monospace;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 20px;
+    }
+    .debug-panel {
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 16px;
+      margin: 10px 0;
+    }
+    .success { color: #4caf50; }
+    .error { color: #f44336; }
+    .info { color: #4fc3f7; }
+    pre {
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 4px;
+      overflow-x: auto;
+    }
+  </style>
+</head>
+<body>
+  <h1>🔍 解析流程调试</h1>
+  
+  <div class="debug-panel">
+    <h3 class="info">1. HTML 解析器测试</h3>
+    <div id="html-result"></div>
+  </div>
+  
+  <div class="debug-panel">
+    <h3 class="info">2. 样式解析器测试</h3>
+    <div id="style-result"></div>
+  </div>
+  
+  <div class="debug-panel">
+    <h3 class="info">3. 布局引擎测试</h3>
+    <div id="layout-result"></div>
+  </div>
+
+  <script type="module">
+    import { HTMLDocumentParser } from './src/core/html-parser.js';
+    import { StyleParser } from './src/core/style-parser.js';
+
+    // 测试 HTML 解析器
+    async function testHTMLParser() {
+      const parser = new HTMLDocumentParser();
+      const html = `<div style="background:linear-gradient(#1e88e5,#42a5f5); border-radius:12px; padding: 16px;">Test</div>`;
+      const result = parser.parse(html);
+      document.getElementById('html-result').innerHTML = `
+        <p class="${result.html.body.children.length > 0 ? 'success' : 'error'}">
+          ✅ HTML解析成功 - 找到 ${result.html.body.children.length} 个子元素
+        </p>
+        <pre>${JSON.stringify(result, null, 2)}</pre>
+      `;
+    }
+
+    // 测试样式解析器
+    async function testStyleParser() {
+      const parser = new StyleParser();
+      const styleStr = 'background:linear-gradient(#1e88e5,#42a5f5); border-radius:12px; box-shadow:0 4px 12px rgba(0,0,0,0.3); padding: 16px 20px;';
+      const result = parser.parseStyle(styleStr);
+      
+      // 解析复杂属性
+      result.gradient = parser.parseGradient(result.background);
+      result.boxShadow = parser.parseBoxShadow(result['box-shadow']);
+      result.padding = parser.parsePadding(result.padding);
+      
+      const hasGradient = !!result.gradient;
+      const hasShadow = !!result.boxShadow && result.boxShadow.blur > 0;
+      const hasPadding = !!result.padding;
+      
+      document.getElementById('style-result').innerHTML = `
+        <p class="${hasGradient && hasShadow && hasPadding ? 'success' : 'error'}">
+          ${hasGradient ? '✅ 渐变解析成功' : '❌ 渐变解析失败'} | 
+          ${hasShadow ? '✅ 阴影解析成功' : '❌ 阴影解析失败'} |
+          ${hasPadding ? '✅ 内边距解析成功' : '❌ 内边距解析失败'}
+        </p>
+        <pre>${JSON.stringify(result, null, 2)}</pre>
+      `;
+    }
+
+    // 测试布局引擎
+    async function testLayoutEngine() {
+      const response = await fetch('./src/core/layout-engine.js');
+      const code = await response.text();
+      const hasStyleParserImport = code.includes('import { StyleParser }');
+      const hasParseStyleOverride = code.includes('this.styleParser.parseStyle');
+      
+      document.getElementById('layout-result').innerHTML = `
+        <p class="${hasStyleParserImport && hasParseStyleOverride ? 'success' : 'error'}">
+          ${hasStyleParserImport ? '✅ StyleParser导入成功' : '❌ StyleParser未导入'} |
+          ${hasParseStyleOverride ? '✅ parseStyle已覆盖' : '❌ parseStyle未覆盖'}
+        </p>
+      `;
+    }
+
+    // 运行所有测试
+    testHTMLParser();
+    testStyleParser();
+    testLayoutEngine();
+  </script>
+</body>
+</html>
