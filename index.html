@@ -2369,7 +2369,10 @@ class SELWebGPU {
         @location(3) gradEnd: vec4f,
         @location(4) uv: vec2f,
         @location(5) rect: vec4f,
-        @location(6) radius: f32
+        @location(6) radius: f32,
+        @location(7) translate: vec2f,
+        @location(8) rotate: f32,
+        @location(9) scale: vec2f
       }
       struct VOut {
         @builtin(position) pos: vec4f,
@@ -2382,7 +2385,20 @@ class SELWebGPU {
       }
       @vertex fn vs(v: Vertex) -> VOut {
         var out: VOut;
-        out.pos = vec4f(v.pos, 0.0, 1.0);
+        
+        // 应用缩放
+        var scaledPos = v.pos * v.scale;
+        
+        // 应用旋转（围绕中心点）
+        let cosR = cos(v.rotate);
+        let sinR = sin(v.rotate);
+        let rotatedX = scaledPos.x * cosR - scaledPos.y * sinR;
+        let rotatedY = scaledPos.x * sinR + scaledPos.y * cosR;
+        
+        // 应用平移
+        let finalPos = vec2f(rotatedX, rotatedY) + v.translate;
+        
+        out.pos = vec4f(finalPos, 0.0, 1.0);
         out.color = v.color;
         out.gradStart = v.gradStart;
         out.gradEnd = v.gradEnd;
@@ -2417,7 +2433,7 @@ class SELWebGPU {
         module: sm,
         entryPoint: 'vs',
         buffers: [{
-          arrayStride: 84,
+          arrayStride: 104,
           attributes: [
             { shaderLocation: 0, offset: 0, format: 'float32x2' },
             { shaderLocation: 1, offset: 8, format: 'float32x4' },
@@ -2425,7 +2441,10 @@ class SELWebGPU {
             { shaderLocation: 3, offset: 40, format: 'float32x4' },
             { shaderLocation: 4, offset: 56, format: 'float32x2' },
             { shaderLocation: 5, offset: 64, format: 'float32x4' },
-            { shaderLocation: 6, offset: 80, format: 'float32' }
+            { shaderLocation: 6, offset: 80, format: 'float32' },
+            { shaderLocation: 7, offset: 84, format: 'float32x2' },
+            { shaderLocation: 8, offset: 92, format: 'float32' },
+            { shaderLocation: 9, offset: 96, format: 'float32x2' }
           ]
         }]
       },
@@ -2608,21 +2627,27 @@ class SELWebGPU {
       const uv00 = [0,0], uv01 = [0,1], uv11 = [1,1];
       const uv10 = [1,0], uv112 = [1,1], uv002 = [0,0];
 
-      // 6个顶点数据：位置+基础色+渐变起始色+渐变结束色+UV+矩形边界+圆角半径
+      // 6个顶点数据：位置+基础色+渐变起始色+渐变结束色+UV+矩形边界+圆角半径+translate+rotate+scale
       const rectMinX = ((task.x) / w) * 2 - 1;
       const rectMinY = 1 - ((task.y) / h) * 2;
       const rectMaxX = ((task.x + task.w) / w) * 2 - 1;
       const rectMaxY = 1 - ((task.y + task.h) / h) * 2;
       const rect = [rectMinX, rectMinY, rectMaxX, rectMaxY];
       const radius = task.radius / w * 2; // 归一化到[-1,1]范围
+      
+      // transform 数据
+      const transform = task.transform || { translate: [0, 0], rotate: 0, scale: [1, 1] };
+      const translate = [transform.translate[0] / w * 2, -transform.translate[1] / h * 2];
+      const rotate = transform.rotate * Math.PI / 180;
+      const scale = transform.scale;
 
       vertices.push(
-        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radius,
-        x1,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radius,
-        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radius,
-        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radius,
-        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radius,
-        x2,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius
+        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radius, ...translate, rotate, ...scale,
+        x1,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radius, ...translate, rotate, ...scale,
+        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radius, ...translate, rotate, ...scale,
+        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radius, ...translate, rotate, ...scale,
+        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radius, ...translate, rotate, ...scale,
+        x2,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius, ...translate, rotate, ...scale
       );
     });
     return new Float32Array(vertices);
@@ -2661,14 +2686,20 @@ class SELWebGPU {
       const rectMaxY = 1 - ((task.y + task.h + shadow.y + shadow.blur) / h) * 2;
       const rect = [rectMinX, rectMinY, rectMaxX, rectMaxY];
       const radius = (task.radius || 8) / w * 2;
+      
+      // transform 数据
+      const transform = task.transform || { translate: [0, 0], rotate: 0, scale: [1, 1] };
+      const translate = [transform.translate[0] / w * 2, -transform.translate[1] / h * 2];
+      const rotate = transform.rotate * Math.PI / 180;
+      const scale = transform.scale;
 
       vertices.push(
-        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radius,
-        x1,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radius,
-        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radius,
-        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radius,
-        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radius,
-        x2,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius
+        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radius, ...translate, rotate, ...scale,
+        x1,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radius, ...translate, rotate, ...scale,
+        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radius, ...translate, rotate, ...scale,
+        x1,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radius, ...translate, rotate, ...scale,
+        x2,y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radius, ...translate, rotate, ...scale,
+        x2,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius, ...translate, rotate, ...scale
       );
     });
     return new Float32Array(vertices);
@@ -2725,14 +2756,20 @@ class SELWebGPU {
         const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0];
         const rect = [-1, -1, 1, 1];
         const radius = 0;
+        
+        // transform 数据
+        const transform = task.transform || { translate: [0, 0], rotate: 0, scale: [1, 1] };
+        const translate = [transform.translate[0] / w * 2, -transform.translate[1] / h * 2];
+        const rotate = transform.rotate * Math.PI / 180;
+        const scale = transform.scale;
 
         vertices.push(
-          x1n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius,
-          x1n, y2n, ...color, ...color, ...color, ...uv01, ...rect, radius,
-          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius,
-          x1n, y1n, ...color, ...color, ...color, ...uv10, ...rect, radius,
-          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius,
-          x2n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius
+          x1n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius, ...translate, rotate, ...scale,
+          x1n, y2n, ...color, ...color, ...color, ...uv01, ...rect, radius, ...translate, rotate, ...scale,
+          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius, ...translate, rotate, ...scale,
+          x1n, y1n, ...color, ...color, ...color, ...uv10, ...rect, radius, ...translate, rotate, ...scale,
+          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius, ...translate, rotate, ...scale,
+          x2n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius, ...translate, rotate, ...scale
         );
       });
     });
@@ -2792,7 +2829,7 @@ class SELWebGPU {
       this.device.queue.writeBuffer(borderBuf, 0, borderData);
       pass.setPipeline(this.layoutPipeline);
       pass.setVertexBuffer(0, borderBuf);
-      pass.draw(borderData.length / 21); // 每个顶点21个float（84字节）
+      pass.draw(borderData.length / 26); // 每个顶点26个float（104字节）
     }
 
     // 渲染高阶布局色块（渐变+动画+hover）
