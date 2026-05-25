@@ -254,8 +254,14 @@ export class SELWebGPU {
 
       const bgColor = task.backgroundColor || '#4fc3f7';
       const baseColor = this.hexToRgba(bgColor);
-      const gradient = task.background && task.background.includes('gradient') ? 
-                       this.parseGradient(task.background) : null;
+      
+      // 兼容已解析的对象格式和原始字符串格式
+      let gradient = null;
+      if (task.gradient) {
+        gradient = task.gradient;
+      } else if (task.background && task.background.includes('gradient')) {
+        gradient = this.parseGradient(task.background);
+      }
       
       const gradStart = gradient ? gradient.start : [0, 0, 0, 0];
       const gradEnd = gradient ? gradient.end : [0, 0, 0, 0];
@@ -298,7 +304,9 @@ export class SELWebGPU {
     const h = this.canvas.height;
 
     tasks.forEach(task => {
-      const shadow = task.boxShadow ? this.parseBoxShadow(task.boxShadow) : null;
+      // 兼容已解析的对象格式和原始字符串格式
+      const shadow = typeof task.boxShadow === 'object' ? task.boxShadow : 
+                     (task.boxShadow ? this.parseBoxShadow(task.boxShadow) : null);
       if (!shadow || shadow.blur <= 0) return;
 
       const shadowX = task.x + shadow.x;

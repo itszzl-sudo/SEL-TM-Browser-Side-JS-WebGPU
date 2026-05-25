@@ -2,6 +2,8 @@
  * SEL-TM 冷路径 - 布局计算引擎
  * 负责 HTML/CSS 解析、布局计算（Flex/Grid/Block）
  */
+import { StyleParser } from './style-parser.js';
+
 export class SELColdPath {
   constructor() {
     this.baseStates = [
@@ -18,6 +20,7 @@ export class SELColdPath {
       grid: this.calcStandardGrid.bind(this),
       box: this.calcStandardBox.bind(this)
     };
+    this.styleParser = new StyleParser();
   }
 
   async init(memoryDB, SEL_TM) {
@@ -460,16 +463,29 @@ export class SELColdPath {
   parseStyle(styleStr) {
     if (!styleStr) return {};
     
-    const style = {};
-    const pairs = styleStr.split(';').filter(p => p.trim());
+    // 使用 StyleParser 解析基础样式
+    const baseStyle = this.styleParser.parseStyle(styleStr);
     
-    pairs.forEach(item => {
-      const [key, val] = item.split(':').map(s => s.trim());
-      if (key && val) {
-        style[key] = val;
-      }
-    });
+    // 解析复杂属性并添加到样式对象中
+    if (baseStyle.background) {
+      baseStyle.gradient = this.styleParser.parseGradient(baseStyle.background);
+    }
+    if (baseStyle['box-shadow']) {
+      baseStyle.boxShadow = this.styleParser.parseBoxShadow(baseStyle['box-shadow']);
+    }
+    if (baseStyle.border) {
+      baseStyle.border = this.styleParser.parseBorder(baseStyle.border);
+    }
+    if (baseStyle.transform) {
+      baseStyle.transform = this.styleParser.parseTransform(baseStyle.transform);
+    }
+    if (baseStyle.padding) {
+      baseStyle.padding = this.styleParser.parsePadding(baseStyle.padding);
+    }
+    if (baseStyle.margin) {
+      baseStyle.margin = this.styleParser.parseMargin(baseStyle.margin);
+    }
     
-    return style;
+    return baseStyle;
   }
 }
