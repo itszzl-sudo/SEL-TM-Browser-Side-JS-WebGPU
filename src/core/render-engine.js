@@ -265,18 +265,23 @@ export class SELWebGPU {
       const rect = [rectMinX, rectMinY, rectMaxX, rectMaxY];
       const radius = (task.borderRadius || 0) / w * 2;
 
-      const transform = task.transform || { translate: [0, 0], rotate: 0, scale: [1, 1] };
-      const translate = [transform.translate[0] / w * 2, -transform.translate[1] / h * 2];
-      const rotate = transform.rotate * Math.PI / 180;
-      const scale = transform.scale;
+      const transform = task.transform || {};
+      const trans = transform.translate && Array.isArray(transform.translate) && transform.translate.length >= 2 
+        ? transform.translate 
+        : [0, 0];
+      const translate = [trans[0] / w * 2, -trans[1] / h * 2];
+      const rotate = typeof transform.rotate === 'number' ? transform.rotate * Math.PI / 180 : 0;
+      const sc = transform.scale && Array.isArray(transform.scale) && transform.scale.length >= 2
+        ? transform.scale
+        : [1, 1];
 
       vertices.push(
-        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radius, ...translate, rotate, ...scale,
-        x1, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radius, ...translate, rotate, ...scale,
-        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radius, ...translate, rotate, ...scale,
-        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radius, ...translate, rotate, ...scale,
-        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radius, ...translate, rotate, ...scale,
-        x2, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius, ...translate, rotate, ...scale
+        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radius, ...translate, rotate, ...sc,
+        x1, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radius, ...translate, rotate, ...sc,
+        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radius, ...translate, rotate, ...sc,
+        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radius, ...translate, rotate, ...sc,
+        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radius, ...translate, rotate, ...sc,
+        x2, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius, ...translate, rotate, ...sc
       );
     });
 

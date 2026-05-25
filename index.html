@@ -136,11 +136,11 @@
 
         // 解析 HTML
         const parser = new HTMLDocumentParser();
-        const document = parser.parse(htmlText);
+        const parsedDoc = parser.parse(htmlText);
         
         // 执行布局计算
         const tasks = await coldPath.executeLayout(
-          document.html.body,
+          parsedDoc.html.body,
           window.innerWidth,
           window.innerHeight
         );
@@ -148,7 +148,7 @@
         currentLayoutTasks = tasks;
         
         // 更新节点计数
-        document.getElementById('node-count').textContent = tasks.length;
+        window.document.getElementById('node-count').textContent = tasks.length;
 
         // 渲染
         webgpu.render(tasks);
@@ -167,7 +167,7 @@
     }
 
     function refreshLayout() {
-      const select = document.getElementById('page-select');
+      const select = window.document.getElementById('page-select');
       loadPage(select.value);
     }
 
