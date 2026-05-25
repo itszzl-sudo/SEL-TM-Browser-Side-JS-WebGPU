@@ -2770,7 +2770,7 @@ class SELWebGPU {
       }]
     });
 
-    // 先渲染阴影
+    // 渲染阴影
     const shadowData = this.generateShadowVertexData(layoutTasks);
     const shadowBuf = this.device.createBuffer({
       size: shadowData.byteLength,
@@ -2780,6 +2780,19 @@ class SELWebGPU {
     pass.setPipeline(this.layoutPipeline);
     pass.setVertexBuffer(0, shadowBuf);
     pass.draw(layoutTasks.length * 6);
+
+    // 渲染边框
+    const borderData = this.generateBorderVertices(layoutTasks);
+    if (borderData.length > 0) {
+      const borderBuf = this.device.createBuffer({
+        size: borderData.byteLength,
+        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+      });
+      this.device.queue.writeBuffer(borderBuf, 0, borderData);
+      pass.setPipeline(this.layoutPipeline);
+      pass.setVertexBuffer(0, borderBuf);
+      pass.draw(borderData.length / 21); // 每个顶点21个float（84字节）
+    }
 
     // 渲染高阶布局色块（渐变+动画+hover）
     const layoutData = this.generateAdvancedVertexData(layoutTasks);
