@@ -467,26 +467,47 @@ export class SELColdPath {
     // 使用 StyleParser 解析基础样式
     const baseStyle = this.styleParser.parseStyle(styleStr);
     
-    // 解析复杂属性并添加到样式对象中
-    if (baseStyle.background) {
-      baseStyle.gradient = this.styleParser.parseGradient(baseStyle.background);
-    }
-    if (baseStyle['box-shadow']) {
-      baseStyle.boxShadow = this.styleParser.parseBoxShadow(baseStyle['box-shadow']);
-    }
-    if (baseStyle.border) {
-      baseStyle.border = this.styleParser.parseBorder(baseStyle.border);
-    }
-    if (baseStyle.transform) {
-      baseStyle.transform = this.styleParser.parseTransform(baseStyle.transform);
-    }
-    if (baseStyle.padding) {
-      baseStyle.padding = this.styleParser.parsePadding(baseStyle.padding);
-    }
-    if (baseStyle.margin) {
-      baseStyle.margin = this.styleParser.parseMargin(baseStyle.margin);
+    // 创建结果样式对象，同时处理驼峰转换
+    const style = {};
+    
+    // 将 kebab-case 转换为 camelCase
+    for (const key of Object.keys(baseStyle)) {
+      const camelKey = key.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
+      style[camelKey] = baseStyle[key];
     }
     
-    return baseStyle;
+    // 解析复杂属性并添加到样式对象中
+    if (style.background) {
+      style.gradient = this.styleParser.parseGradient(style.background);
+    }
+    if (style.boxShadow || baseStyle['box-shadow']) {
+      const shadowStr = style.boxShadow || baseStyle['box-shadow'];
+      style.boxShadow = this.styleParser.parseBoxShadow(shadowStr);
+    }
+    if (style.border) {
+      style.border = this.styleParser.parseBorder(style.border);
+    }
+    if (style.transform) {
+      style.transform = this.styleParser.parseTransform(style.transform);
+    }
+    if (style.padding) {
+      style.padding = this.styleParser.parsePadding(style.padding);
+    }
+    if (style.margin) {
+      style.margin = this.styleParser.parseMargin(style.margin);
+    }
+    
+    // 解析数值属性为数字
+    if (style.width) {
+      style.width = parseFloat(style.width) || style.width;
+    }
+    if (style.height) {
+      style.height = parseFloat(style.height) || style.height;
+    }
+    if (style.borderRadius) {
+      style.borderRadius = parseFloat(style.borderRadius) || style.borderRadius;
+    }
+    
+    return style;
   }
 }
