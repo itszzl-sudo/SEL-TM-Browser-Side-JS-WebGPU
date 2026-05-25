@@ -12,12 +12,21 @@ export class ColorParser {
   hexToRgba(hex, alpha = 1) {
     if (!hex) return [0.5, 0.5, 0.5, alpha];
     
-    // 处理 rgba() 格式
-    const rgbaMatch = hex.match(/rgba?\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/);
+    // 处理 rgba() 格式（支持百分比）
+    const rgbaMatch = hex.match(/rgba?\s*\(\s*([\d.]+)\s*%?\s*,\s*([\d.]+)\s*%?\s*,\s*([\d.]+)\s*%?\s*(?:,\s*([\d.]+))?\s*\)/);
     if (rgbaMatch) {
-      const r = parseFloat(rgbaMatch[1]) / 255;
-      const g = parseFloat(rgbaMatch[2]) / 255;
-      const b = parseFloat(rgbaMatch[3]) / 255;
+      let r, g, b;
+      if (hex.includes('%')) {
+        // 百分比格式
+        r = parseFloat(rgbaMatch[1]) / 100;
+        g = parseFloat(rgbaMatch[2]) / 100;
+        b = parseFloat(rgbaMatch[3]) / 100;
+      } else {
+        // 0-255格式
+        r = parseFloat(rgbaMatch[1]) / 255;
+        g = parseFloat(rgbaMatch[2]) / 255;
+        b = parseFloat(rgbaMatch[3]) / 255;
+      }
       const a = rgbaMatch[4] !== undefined ? parseFloat(rgbaMatch[4]) : alpha;
       return [r, g, b, a];
     }
@@ -33,19 +42,29 @@ export class ColorParser {
       return [r, g, b, a];
     }
     
-    // 处理十六进制颜色
+    // 处理十六进制颜色（支持3位、6位、8位）
     if (hex.startsWith('#')) {
-      let r, g, b;
+      let r, g, b, a = alpha;
       if (hex.length === 4) {
+        // 3位短格式 #RGB
         r = parseInt(hex[1] + hex[1], 16) / 255;
         g = parseInt(hex[2] + hex[2], 16) / 255;
         b = parseInt(hex[3] + hex[3], 16) / 255;
-      } else {
+      } else if (hex.length === 7) {
+        // 6位格式 #RRGGBB
         r = parseInt(hex.slice(1, 3), 16) / 255;
         g = parseInt(hex.slice(3, 5), 16) / 255;
         b = parseInt(hex.slice(5, 7), 16) / 255;
+      } else if (hex.length === 9) {
+        // 8位格式 #RRGGBBAA
+        r = parseInt(hex.slice(1, 3), 16) / 255;
+        g = parseInt(hex.slice(3, 5), 16) / 255;
+        b = parseInt(hex.slice(5, 7), 16) / 255;
+        a = parseInt(hex.slice(7, 9), 16) / 255;
+      } else {
+        return [0.5, 0.5, 0.5, alpha];
       }
-      return [r, g, b, alpha];
+      return [r, g, b, a];
     }
     
     // 处理颜色名称

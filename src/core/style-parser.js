@@ -1,10 +1,12 @@
 /**
  * 样式解析器
- * 负责解析CSS样式字符串和装饰效果
+ * 负责解析 CSS 样式字符串和装饰效果
  */
+import { ColorParser } from './color-parser.js';
+
 export class StyleParser {
   constructor() {
-    this.colorParser = new (await import('./color-parser.js')).ColorParser();
+    this.colorParser = new ColorParser();
   }
 
   /**

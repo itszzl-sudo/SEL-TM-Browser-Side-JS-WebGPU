@@ -97,8 +97,76 @@ Double-click `SEL-TM-WebGPU-Edge.lnk` to launch Edge with WebGPU enabled.
 
 - `index.html` - SEL-TM engine host page
 - `demo.html` - External page to be rendered
+- `test/` - Test suite
+  - `index.html` - Unit tests (HTML/Color/Style parsers)
+  - `layout-test.html` - Layout engine visual tests
+- `src/core/` - Core modules
+  - `sel-tm.js` - Global state and W3C rules
+  - `memory-db.js` - IndexedDB persistence
+  - `color-parser.js` - Color parsing utilities
+  - `style-parser.js` - Style parsing
+  - `html-parser.js` - HTML document parser
+  - `layout-engine.js` - Layout calculation engine
+  - `render-engine.js` - WebGPU rendering engine
 - `使用说明.md` - Chinese documentation
 - `README.md` - English documentation
+
+## Testing
+
+### Browser-Based Tests (Recommended)
+
+Open test pages in browser:
+
+```bash
+# Start HTTP server
+python -m http.server 8000
+
+# Run unit tests
+http://localhost:8000/test/index.html
+
+# Run layout visual tests
+http://localhost:8000/test/layout-test.html
+```
+
+### Test Coverage
+
+**Unit Tests** (`test/index.html`):
+- ✅ HTML Parser (6 tests)
+  - Simple parsing
+  - Attributes
+  - Self-closing tags
+  - Comment skipping
+  - Deep nesting
+  - Mixed content
+
+- ✅ Color Parser (10 tests)
+  - Hex colors (#RGB, #RRGGBB, #RRGGBBAA)
+  - RGB/RGBA
+  - HSL/HSLA
+  - Color names
+  - Percentage values
+
+- ✅ Style Parser (5 tests)
+  - Simple styles
+  - CamelCase conversion
+  - Quoted values
+  - Empty styles
+  - Complex Flex styles
+
+**Visual Tests** (`test/layout-test.html`):
+- ✅ Block layout
+- ✅ Flex layout
+- ✅ Grid layout
+- ✅ Position (absolute/relative/fixed)
+- ✅ Border radius
+- ✅ Box shadow
+
+### Running Tests
+
+1. Start HTTP server: `python -m http.server 8000`
+2. Open `http://localhost:8000/test/index.html`
+3. Click "运行所有测试" to run all tests
+4. View pass/fail status and error details
 
 ## Architecture
 

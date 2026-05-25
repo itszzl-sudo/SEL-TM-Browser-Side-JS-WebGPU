@@ -31,6 +31,15 @@ export class HTMLDocumentParser {
     const htmlMatch = htmlText.match(/<html[^>]*>([\s\S]*?)<\/html>/i);
     if (htmlMatch) {
       this.parseHTMLContent(htmlMatch[1]);
+    } else {
+      // 如果没有完整的 html 标签，尝试直接解析 body 内容
+      const bodyMatch = htmlText.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+      if (bodyMatch) {
+        this.parseBody(bodyMatch[1]);
+      } else {
+        // 如果连 body 标签都没有，直接解析内容作为 body 的子元素
+        this.document.html.body.children = this.parseElements(htmlText);
+      }
     }
 
     return this.document;

@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SEL-TM 测试套件</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #1a1a2e;
+      color: #fff;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #4fc3f7;
+    }
+    .test-section {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      border: 1px solid rgba(79,195,247,0.2);
+    }
+    .test-section h2 {
+      color: #4fc3f7;
+      margin-bottom: 15px;
+      font-size: 18px;
+      border-bottom: 1px solid rgba(79,195,247,0.3);
+      padding-bottom: 8px;
+    }
+    .test-item {
+      display: flex;
+      align-items: center;
+      padding: 10px;
+      margin: 5px 0;
+      background: rgba(0,0,0,0.2);
+      border-radius: 6px;
+    }
+    .test-status {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      margin-right: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+    }
+    .test-status.pass { background: #4caf50; }
+    .test-status.fail { background: #f44336; }
+    .test-name { flex: 1; }
+    .test-detail {
+      font-size: 12px;
+      color: #888;
+      margin-top: 5px;
+      padding-left: 36px;
+    }
+    .test-detail.error {
+      color: #f44336;
+    }
+    .summary {
+      background: rgba(79,195,247,0.1);
+      border: 2px solid #4fc3f7;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .summary h2 {
+      font-size: 24px;
+      margin-bottom: 10px;
+    }
+    .summary-stats {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      font-size: 18px;
+    }
+    .stat-pass { color: #4caf50; }
+    .stat-fail { color: #f44336; }
+    #run-all-btn {
+      display: block;
+      margin: 20px auto;
+      padding: 12px 40px;
+      background: linear-gradient(135deg, #4fc3f7, #2196f3);
+      border: none;
+      border-radius: 8px;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    #run-all-btn:hover {
+      transform: scale(1.05);
+    }
+    .visual-test {
+      margin-top: 10px;
+      padding: 10px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 6px;
+    }
+    .color-box {
+      display: inline-block;
+      width: 40px;
+      height: 40px;
+      border-radius: 4px;
+      margin: 5px;
+      border: 2px solid rgba(255,255,255,0.2);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧪 SEL-TM 引擎测试套件</h1>
+    
+    <button id="run-all-btn">运行所有测试</button>
+    
+    <div class="summary" id="summary" style="display:none;">
+      <h2>测试总结</h2>
+      <div class="summary-stats">
+        <div class="stat-pass">✅ 通过：<span id="pass-count">0</span></div>
+        <div class="stat-fail">❌ 失败：<span id="fail-count">0</span></div>
+        <div>总计：<span id="total-count">0</span></div>
+      </div>
+    </div>
+
+    <div id="test-results"></div>
+  </div>
+
+  <script type="module">
+    import { HTMLDocumentParser } from './src/core/html-parser.js';
+    import { ColorParser } from './src/core/color-parser.js';
+    import { StyleParser } from './src/core/style-parser.js';
+
+    // 测试结果存储
+    const testResults = {
+      htmlParser: [],
+      colorParser: [],
+      styleParser: []
+    };
+
+    // HTML 解析器测试
+    const htmlParserTests = [
+      {
+        name: '简单 HTML 解析',
+        input: '<div><p>Hello</p></div>',
+        test: (result) => result.html.body.children.length === 1 && result.html.body.children[0].children[0].tag === 'p'
+      },
+      {
+        name: '带属性元素',
+        input: '<div class="test" id="main"></div>',
+        test: (result) => {
+          const attrs = result.html.body.children[0].attrs;
+          return attrs.class === 'test' && attrs.id === 'main';
+        }
+      },
+      {
+        name: '自闭合标签',
+        input: '<img src="test.jpg"/><br/>',
+        test: (result) => result.html.body.children.length === 2
+      },
+      {
+        name: '注释跳过',
+        input: '<!-- comment --><div>Content</div>',
+        test: (result) => result.html.body.children.length === 1
+      },
+      {
+        name: '深层嵌套',
+        input: '<div><ul><li>1</li><li>2</li></ul></div>',
+        test: (result) => {
+          const ul = result.html.body.children[0].children[0];
+          return ul.children.length === 2;
+        }
+      },
+      {
+        name: '混合内容',
+        input: '<div>Text<span>Nested</span>More Text</div>',
+        test: (result) => {
+          const div = result.html.body.children[0];
+          return div.children.length === 1 && div.text.includes('Text');
+        }
+      }
+    ];
+
+    // 颜色解析器测试
+    const colorParserTests = [
+      {
+        name: '十六进制 #ff5722',
+        input: '#ff5722',
+        test: (result) => Math.abs(result[0] - 1) < 0.01 && Math.abs(result[1] - 0.34) < 0.01
+      },
+      {
+        name: '短十六进制 #f00',
+        input: '#f00',
+        test: (result) => result[0] === 1 && result[1] === 0 && result[2] === 0
+      },
+      {
+        name: '带透明度 #ff572280',
+        input: '#ff572280',
+        test: (result) => Math.abs(result[3] - 0.5) < 0.01
+      },
+      {
+        name: 'rgb(255, 87, 34)',
+        input: 'rgb(255, 87, 34)',
+        test: (result) => Math.abs(result[0] - 1) < 0.01
+      },
+      {
+        name: 'rgba(255, 87, 34, 0.5)',
+        input: 'rgba(255, 87, 34, 0.5)',
+        test: (result) => Math.abs(result[3] - 0.5) < 0.01
+      },
+      {
+        name: 'rgb 百分比',
+        input: 'rgb(100%, 34%, 13%)',
+        test: (result) => result[0] === 1 && Math.abs(result[1] - 0.34) < 0.01
+      },
+      {
+        name: 'hsl(14, 100%, 50%)',
+        input: 'hsl(14, 100%, 50%)',
+        test: (result) => Math.abs(result[0] - 1) < 0.01
+      },
+      {
+        name: 'hsla 带透明度',
+        input: 'hsla(14, 100%, 50%, 0.7)',
+        test: (result) => Math.abs(result[3] - 0.7) < 0.01
+      },
+      {
+        name: '颜色名称 red',
+        input: 'red',
+        test: (result) => result[0] === 1 && result[1] === 0
+      },
+      {
+        name: 'transparent',
+        input: 'transparent',
+        test: (result) => result[3] === 0
+      }
+    ];
+
+    // 样式解析器测试
+    const styleParserTests = [
+      {
+        name: '简单样式解析',
+        input: 'color: red; background: blue;',
+        test: (result) => result.color === 'red' && result.background === 'blue'
+      },
+      {
+        name: '驼峰转换',
+        input: 'font-size: 16px; background-color: red;',
+        test: (result) => result.fontSize === '16px' && result.backgroundColor === 'red'
+      },
+      {
+        name: '带引号的值',
+        input: 'background: url("test.jpg");',
+        test: (result) => result.background.includes('url')
+      },
+      {
+        name: '空样式',
+        input: '',
+        test: (result) => Object.keys(result).length === 0
+      },
+      {
+        name: '复杂 Flex 样式',
+        input: 'display: flex; justify-content: space-between;',
+        test: (result) => result.display === 'flex' && result.justifyContent === 'space-between'
+      }
+    ];
+
+    // 运行测试
+    function runTests(tests, parser, resultArray, sectionId) {
+      const section = document.getElementById(sectionId);
+      section.innerHTML = '';
+      
+      let passCount = 0;
+      let failCount = 0;
+
+      tests.forEach((test, index) => {
+        try {
+          const result = parser(test.input);
+          const passed = test.test(result);
+          
+          if (passed) {
+            passCount++;
+            resultArray.push({ name: test.name, passed: true });
+          } else {
+            failCount++;
+            resultArray.push({ name: test.name, passed: false, error: '测试结果不符合预期' });
+          }
+
+          const testDiv = document.createElement('div');
+          testDiv.className = 'test-item';
+          testDiv.innerHTML = `
+            <div class="test-status ${passed ? 'pass' : 'fail'}">${passed ? '✓' : '✗'}</div>
+            <div class="test-name">${test.name}</div>
+          `;
+          
+          if (!passed) {
+            const detailDiv = document.createElement('div');
+            detailDiv.className = 'test-detail error';
+            detailDiv.textContent = `错误：测试结果不符合预期`;
+            testDiv.appendChild(detailDiv);
+          }
+          
+          section.appendChild(testDiv);
+        } catch (error) {
+          failCount++;
+          resultArray.push({ name: test.name, passed: false, error: error.message });
+          
+          const testDiv = document.createElement('div');
+          testDiv.className = 'test-item';
+          testDiv.innerHTML = `
+            <div class="test-status fail">✗</div>
+            <div class="test-name">${test.name}</div>
+          `;
+          const detailDiv = document.createElement('div');
+          detailDiv.className = 'test-detail error';
+          detailDiv.textContent = `异常：${error.message}`;
+          testDiv.appendChild(detailDiv);
+          section.appendChild(testDiv);
+        }
+      });
+
+      return { pass: passCount, fail: failCount };
+    }
+
+    // 运行所有测试
+    document.getElementById('run-all-btn').addEventListener('click', () => {
+      const resultsDiv = document.getElementById('test-results');
+      resultsDiv.innerHTML = '';
+
+      // HTML Parser
+      const htmlSection = document.createElement('div');
+      htmlSection.className = 'test-section';
+      htmlSection.innerHTML = '<h2>📄 HTML 解析器测试</h2><div id="html-results"></div>';
+      resultsDiv.appendChild(htmlSection);
+
+      // Color Parser
+      const colorSection = document.createElement('div');
+      colorSection.className = 'test-section';
+      colorSection.innerHTML = '<h2>🎨 颜色解析器测试</h2><div id="color-results"></div>';
+      resultsDiv.appendChild(colorSection);
+
+      // Style Parser
+      const styleSection = document.createElement('div');
+      styleSection.className = 'test-section';
+      styleSection.innerHTML = '<h2>🎭 样式解析器测试</h2><div id="style-results"></div>';
+      resultsDiv.appendChild(styleSection);
+
+      // 运行测试
+      const htmlParser = new HTMLDocumentParser();
+      const colorParser = new ColorParser();
+      const styleParser = new StyleParser();
+
+      const htmlResult = runTests(htmlParserTests, (input) => htmlParser.parse(input), testResults.htmlParser, 'html-results');
+      const colorResult = runTests(colorParserTests, (input) => colorParser.hexToRgba(input), testResults.colorParser, 'color-results');
+      const styleResult = runTests(styleParserTests, (input) => styleParser.parseStyle(input), testResults.styleParser, 'style-results');
+
+      // 更新总结
+      const totalPass = htmlResult.pass + colorResult.pass + styleResult.pass;
+      const totalFail = htmlResult.fail + colorResult.fail + styleResult.fail;
+      
+      document.getElementById('summary').style.display = 'block';
+      document.getElementById('pass-count').textContent = totalPass;
+      document.getElementById('fail-count').textContent = totalFail;
+      document.getElementById('total-count').textContent = totalPass + totalFail;
+    });
+
+    // 自动运行一次
+    window.addEventListener('load', () => {
+      document.getElementById('run-all-btn').click();
+    });
+  </script>
+</body>
+</html>

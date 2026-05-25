@@ -1,0 +1,25 @@
+{
+  "name": "sel-tm-webgpu-renderer",
+  "version": "1.0.0",
+  "description": "SEL-TM Browser-side JS+WebGPU Rendering Engine",
+  "main": "index.html",
+  "scripts": {
+    "test": "node --experimental-vm-modules test/run-all.js",
+    "test:html": "node --experimental-vm-modules test/html-parser.test.js",
+    "test:color": "node --experimental-vm-modules test/color-parser.test.js",
+    "test:style": "node --experimental-vm-modules test/style-parser.test.js",
+    "test:layout": "node --experimental-vm-modules test/layout-engine.test.js",
+    "start": "python -m http.server 8000"
+  },
+  "type": "module",
+  "keywords": [
+    "webgpu",
+    "rendering",
+    "layout",
+    "css",
+    "html",
+    "sel-tm"
+  ],
+  "author": "SEL-TM Team",
+  "license": "MIT"
+}
