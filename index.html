@@ -2093,18 +2093,24 @@ class HTMLDocumentParser {
       const style = this.parseInlineStyle(el.attributes.style || '');
       style.class = (el.attributes.class || '').split(/\s+/).filter(Boolean);
       style.id = el.attributes.id || null;
-      const mergedStyle = { ...parentStyle, ...style };
+      
+      // 如果父元素是 flex 容器，子元素也继承 display: flex
+      const effectiveStyle = { ...parentStyle, ...style };
+      if (parentStyle.display === 'flex' && !style.display) {
+        effectiveStyle.display = 'flex';
+      }
+      
       const textContent = this.extractText(el.children).trim();
 
       result.push({
         tagName: el.type,
-        style: mergedStyle,
+        style: effectiveStyle,
         text: textContent,
         attributes: el.attributes
       });
 
       if (el.children && el.children.length > 0) {
-        result.push(...this.extractElements(el.children, mergedStyle));
+        result.push(...this.extractElements(el.children, effectiveStyle));
       }
     });
 
