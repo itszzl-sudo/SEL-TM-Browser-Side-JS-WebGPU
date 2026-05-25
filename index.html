@@ -86,11 +86,11 @@
       <span id="render-mode" class="debug-value">WebGPU</span>
     </div>
     <br>
-    <select id="page-select" onchange="loadPage(this.value)">
+    <select id="page-select">
       <option value="demo.html">demo.html</option>
       <option value="test-all.html">test-all.html</option>
     </select>
-    <button onclick="refreshLayout()">刷新布局</button>
+    <button id="refresh-btn">刷新布局</button>
   </div>
 
   <!-- 导入模块 -->
@@ -125,6 +125,12 @@
 
       // 设置窗口 resize 监听
       window.addEventListener('resize', handleResize);
+
+      // 设置调试面板事件监听
+      window.document.getElementById('page-select').addEventListener('change', (e) => {
+        loadPage(e.target.value);
+      });
+      window.document.getElementById('refresh-btn').addEventListener('click', refreshLayout);
 
       console.log('✅ SEL-TM 高阶完整版引擎启动成功｜全特性布局+交互+动画就绪');
     }
