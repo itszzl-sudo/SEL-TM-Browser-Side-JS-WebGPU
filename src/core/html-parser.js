@@ -95,21 +95,84 @@ export class HTMLDocumentParser {
    */
   parseElements(content) {
     const elements = [];
-    const tagRegex = /<([a-zA-Z][a-zA-Z0-9]*)\s*([^>]*)>([^<]*)/gi;
-    let match;
+    let pos = 0;
 
-    while ((match = tagRegex.exec(content)) !== null) {
-      const tagName = match[1].toLowerCase();
-      const attrsStr = match[2];
-      const innerText = match[3].trim();
+    while (pos < content.length) {
+      // 跳过空白字符和注释
+      const commentMatch = content.substr(pos).match(/^<!--[\s\S]*?-->/);
+      if (commentMatch) {
+        pos += commentMatch[0].length;
+        continue;
+      }
+
+      // 跳过空白
+      while (pos < content.length && /\s/.test(content[pos])) {
+        pos++;
+      }
+
+      if (pos >= content.length) break;
+
+      // 查找开始标签
+      const startTagMatch = content.substr(pos).match(/^<([a-zA-Z][a-zA-Z0-9]*)\s*([^>]*)>/);
+      if (!startTagMatch) {
+        // 文本内容
+        const textMatch = content.substr(pos).match(/^([^<]+)/);
+        if (textMatch) {
+          const text = textMatch[1].trim();
+          if (text) {
+            elements.push({ tag: '#text', text: text, children: [] });
+          }
+          pos += textMatch[0].length;
+        } else {
+          pos++;
+        }
+        continue;
+      }
+
+      const tagName = startTagMatch[1].toLowerCase();
+      const attrsStr = startTagMatch[2];
+      pos += startTagMatch[0].length;
 
       const element = {
         tag: tagName,
         attrs: this.parseAttributes(attrsStr),
         children: [],
-        text: innerText
+        text: ''
       };
 
+      // 检查是否是自闭合标签
+      if (attrsStr.endsWith('/') || ['img', 'br', 'hr', 'input', 'meta', 'link'].includes(tagName)) {
+        elements.push(element);
+        continue;
+      }
+
+      // 查找结束标签
+      const endTagPattern = new RegExp(`</${tagName}>`, 'i');
+      const endTagMatch = content.substr(pos).match(endTagPattern);
+      
+      if (!endTagMatch) {
+        // 没有结束标签，假设是自闭合
+        elements.push(element);
+        continue;
+      }
+
+      const innerContent = content.substr(pos, endTagMatch.index);
+      pos += endTagMatch.index + endTagMatch[0].length;
+
+      // 解析子元素
+      const childElements = this.parseElements(innerContent);
+      
+      // 分离文本和子元素
+      let textContent = '';
+      childElements.forEach(child => {
+        if (child.tag === '#text') {
+          textContent += child.text;
+        } else {
+          element.children.push(child);
+        }
+      });
+      
+      element.text = textContent;
       elements.push(element);
     }
 
