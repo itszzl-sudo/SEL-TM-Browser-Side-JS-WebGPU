@@ -1597,71 +1597,6 @@ class SELColdPath {
   }
 
   // 渲染边框
-  generateBorderVertices(tasks) {
-    const vertices = [];
-    const w = this.canvas.width;
-    const h = this.canvas.height;
-
-    tasks.forEach(task => {
-      const border = task.border;
-      if (!border) return;
-
-      const edges = [
-        { side: 'top', dir: [0, -1], length: task.w },
-        { side: 'right', dir: [1, 0], length: task.h },
-        { side: 'bottom', dir: [0, 1], length: task.w },
-        { side: 'left', dir: [-1, 0], length: task.h }
-      ];
-
-      edges.forEach(edge => {
-        const b = border[edge.side];
-        if (!b || !b.width || b.width <= 0) return;
-
-        const x1 = task.x;
-        const y1 = task.y;
-        const x2 = task.x + task.w;
-        const y2 = task.y + task.h;
-
-        let x, y, bw, bh;
-        switch (edge.side) {
-          case 'top':
-            x = x1; y = y1; bw = edge.length; bh = b.width;
-            break;
-          case 'right':
-            x = x2 - b.width; y = y1; bw = b.width; bh = edge.length;
-            break;
-          case 'bottom':
-            x = x1; y = y2 - b.width; bw = edge.length; bh = b.width;
-            break;
-          case 'left':
-            x = x1; y = y1; bw = b.width; bh = edge.length;
-            break;
-        }
-
-        const x1n = (x / w) * 2 - 1;
-        const y1n = 1 - (y / h) * 2;
-        const x2n = ((x + bw) / w) * 2 - 1;
-        const y2n = 1 - ((y + bh) / h) * 2;
-
-        const color = b.color || [0, 0, 0, 1];
-        const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0];
-        const rect = [-1, -1, 1, 1];
-        const radius = 0;
-
-        vertices.push(
-          x1n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius,
-          x1n, y2n, ...color, ...color, ...color, ...uv01, ...rect, radius,
-          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius,
-          x1n, y1n, ...color, ...color, ...color, ...uv10, ...rect, radius,
-          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius,
-          x2n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius
-        );
-      });
-    });
-
-    return new Float32Array(vertices);
-  }
-
   // backdrop-filter 效果（模糊背景）
   backdropFilterSupported = false;
 
@@ -2736,6 +2671,72 @@ class SELWebGPU {
         x2,y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius
       );
     });
+    return new Float32Array(vertices);
+  }
+
+  // 生成边框顶点数据
+  generateBorderVertices(tasks) {
+    const vertices = [];
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    tasks.forEach(task => {
+      const border = task.border;
+      if (!border) return;
+
+      const edges = [
+        { side: 'top', dir: [0, -1], length: task.w },
+        { side: 'right', dir: [1, 0], length: task.h },
+        { side: 'bottom', dir: [0, 1], length: task.w },
+        { side: 'left', dir: [-1, 0], length: task.h }
+      ];
+
+      edges.forEach(edge => {
+        const b = border[edge.side];
+        if (!b || !b.width || b.width <= 0) return;
+
+        const x1 = task.x;
+        const y1 = task.y;
+        const x2 = task.x + task.w;
+        const y2 = task.y + task.h;
+
+        let x, y, bw, bh;
+        switch (edge.side) {
+          case 'top':
+            x = x1; y = y1; bw = edge.length; bh = b.width;
+            break;
+          case 'right':
+            x = x2 - b.width; y = y1; bw = b.width; bh = edge.length;
+            break;
+          case 'bottom':
+            x = x1; y = y2 - b.width; bw = edge.length; bh = b.width;
+            break;
+          case 'left':
+            x = x1; y = y1; bw = b.width; bh = edge.length;
+            break;
+        }
+
+        const x1n = (x / w) * 2 - 1;
+        const y1n = 1 - (y / h) * 2;
+        const x2n = ((x + bw) / w) * 2 - 1;
+        const y2n = 1 - ((y + bh) / h) * 2;
+
+        const color = b.color || [0, 0, 0, 1];
+        const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0];
+        const rect = [-1, -1, 1, 1];
+        const radius = 0;
+
+        vertices.push(
+          x1n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius,
+          x1n, y2n, ...color, ...color, ...color, ...uv01, ...rect, radius,
+          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius,
+          x1n, y1n, ...color, ...color, ...color, ...uv10, ...rect, radius,
+          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius,
+          x2n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius
+        );
+      });
+    });
+
     return new Float32Array(vertices);
   }
 
