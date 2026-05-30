@@ -121,6 +121,65 @@
     #run-layout-btn:hover {
       transform: scale(1.05);
     }
+    .deco-section {
+      margin-top: 30px;
+    }
+    .deco-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+    }
+    .deco-card {
+      background: rgba(255,255,255,0.05);
+      border-radius: 12px;
+      padding: 20px;
+      border: 1px solid rgba(79,195,247,0.2);
+    }
+    .deco-card h3 {
+      color: #4fc3f7;
+      margin-bottom: 15px;
+      font-size: 14px;
+    }
+    .deco-visual {
+      min-height: 120px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .deco-radius-visual {
+      width: 100px;
+      height: 60px;
+    }
+    .deco-underline { text-decoration: underline; }
+    .deco-overline { text-decoration: overline; }
+    .deco-linethrough { text-decoration: line-through; }
+    .deco-inset-shadow {
+      padding: 20px;
+      background: #333;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+      border-radius: 4px;
+      color: #fff;
+    }
+    .deco-dropshadow {
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      border-radius: 8px;
+      color: #fff;
+    }
+    .deco-multishadow {
+      padding: 20px;
+      background: linear-gradient(135deg, #f093fb, #f5576c);
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3), 0 8px 16px rgba(0,0,0,0.2);
+      border-radius: 8px;
+      color: #fff;
+    }
+    .deco-text {
+      font-size: 16px;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
@@ -206,12 +265,50 @@
         </div>
       </div>
     </div>
+
+    <!-- 装饰效果测试区域 -->
+    <div class="deco-section">
+      <h2 style="color: #4fc3f7; margin: 30px 0 20px; text-align: center;">✨ 装饰效果测试</h2>
+
+      <!-- 文本装饰测试 -->
+      <div class="deco-grid">
+        <div class="deco-card">
+          <h3>text-decoration 文本装饰</h3>
+          <div class="deco-visual">
+            <div class="deco-text deco-underline">下划线 underline</div>
+            <div class="deco-text deco-overline">上划线 overline</div>
+            <div class="deco-text deco-linethrough">删除线 line-through</div>
+          </div>
+        </div>
+
+        <!-- 四角独立圆角测试 -->
+        <div class="deco-card">
+          <h3>border-radius 四角独立圆角</h3>
+          <div class="deco-visual">
+            <div class="deco-radius-visual" style="background: linear-gradient(#667eea, #764ba2); border-radius: 20px 0 0 0;"></div>
+            <div class="deco-radius-visual" style="background: linear-gradient(#f093fb, #f5576c); border-radius: 0 30px 0 10px;"></div>
+            <div class="deco-radius-visual" style="background: linear-gradient(#4facfe, #00f2fe); border-radius: 0 0 25px 0;"></div>
+            <div class="deco-radius-visual" style="background: linear-gradient(#43e97b, #38f9d7); border-radius: 0 0 0 35px;"></div>
+          </div>
+        </div>
+
+        <!-- 阴影效果测试 -->
+        <div class="deco-card">
+          <h3>box-shadow 阴影效果</h3>
+          <div class="deco-visual">
+            <div class="deco-inset-shadow">inset 阴影</div>
+            <div class="deco-dropshadow">drop 阴影</div>
+            <div class="deco-multishadow">多层阴影</div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script type="module">
-    import { SELColdPath } from './src/core/layout-engine.js';
-    import { SEL_TM } from './src/core/sel-tm.js';
-    import { memoryDB } from './src/core/memory-db.js';
+    import { SELColdPath } from '../src/core/layout-engine.js';
+    import { SEL_TM } from '../src/core/sel-tm.js';
+    import { memoryDB } from '../src/core/memory-db.js';
 
     const mockMemoryDB = {
       getShortTerm: async () => null

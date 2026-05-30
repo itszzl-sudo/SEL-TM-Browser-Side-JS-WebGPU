@@ -951,8 +951,12 @@ export class SELColdPath {
   /**
    * 执行布局计算
    */
-  async executeLayout(domTree, containerWidth, containerHeight) {
+  async executeLayout(domTree, containerWidth, containerHeight, cssText = '') {
     const layoutTasks = [];
+
+    if (cssText) {
+      this.styleParser.parsePseudoElements(cssText);
+    }
 
     // 匹配媒体查询
     const mediaRules = this.matchMediaQueries(containerWidth, containerHeight);
@@ -1008,6 +1012,23 @@ export class SELColdPath {
     // 应用 box-sizing
     task = this.applyBoxSizing(task, node);
 
+    // 处理 aspect-ratio
+    if (task.aspectRatio && !style.width && !style.height) {
+      const ratioParts = String(task.aspectRatio).split('/');
+      if (ratioParts.length === 2) {
+        const ratioW = parseFloat(ratioParts[0]);
+        const ratioH = parseFloat(ratioParts[1]);
+        if (ratioW && ratioH && ratioW > 0 && ratioH > 0) {
+          const ratio = ratioW / ratioH;
+          if (style.height) {
+            task.width = task.height * ratio;
+          } else {
+            task.height = task.width / ratio;
+          }
+        }
+      }
+    }
+
     // 处理 position
     if (task.position === 'absolute') {
       task.x = parseFloat(style.left) || container.x;
@@ -1036,6 +1057,52 @@ export class SELColdPath {
     }
 
     tasks.push(task);
+
+    // 处理伪元素 ::before 和 ::after
+    const pseudoStyles = this.styleParser.getAllPseudoElements();
+    const elementId = task.tag;
+
+    const beforeStyle = this.styleParser.getPseudoElement(elementId, 'before');
+    if (beforeStyle && beforeStyle.display !== 'none') {
+      const beforeTask = {
+        id: `${task.id}-before`,
+        tag: '::before',
+        x: task.x,
+        y: task.y,
+        width: typeof beforeStyle.width === 'number' ? beforeStyle.width : task.width,
+        height: typeof beforeStyle.height === 'number' ? beforeStyle.height : beforeStyle.height === 'auto' ? 0 : 20,
+        display: beforeStyle.display || 'block',
+        content: beforeStyle.content || '',
+        background: beforeStyle.background,
+        color: beforeStyle.color,
+        position: beforeStyle.position || 'relative',
+        ...beforeStyle
+      };
+      if (beforeTask.display !== 'none' && beforeTask.content) {
+        tasks.push(beforeTask);
+      }
+    }
+
+    const afterStyle = this.styleParser.getPseudoElement(elementId, 'after');
+    if (afterStyle && afterStyle.display !== 'none') {
+      const afterTask = {
+        id: `${task.id}-after`,
+        tag: '::after',
+        x: task.x,
+        y: task.y + task.height - (typeof afterStyle.height === 'number' ? afterStyle.height : 20),
+        width: typeof afterStyle.width === 'number' ? afterStyle.width : task.width,
+        height: typeof afterStyle.height === 'number' ? afterStyle.height : afterStyle.height === 'auto' ? 0 : 20,
+        display: afterStyle.display || 'block',
+        content: afterStyle.content || '',
+        background: afterStyle.background,
+        color: afterStyle.color,
+        position: afterStyle.position || 'relative',
+        ...afterStyle
+      };
+      if (afterTask.display !== 'none' && afterTask.content) {
+        tasks.push(afterTask);
+      }
+    }
 
     // 处理子元素布局
     if (node.children && node.children.length > 0) {
@@ -1178,8 +1245,8 @@ export class SELColdPath {
     if (style.background) {
       style.gradient = this.styleParser.parseGradient(style.background);
     }
-    if (style.boxShadow || baseStyle['box-shadow']) {
-      const shadowStr = style.boxShadow || baseStyle['box-shadow'];
+    if (style.boxShadow) {
+      const shadowStr = style.boxShadow;
       style.boxShadow = this.styleParser.parseBoxShadow(shadowStr);
     }
     if (style.border) {
@@ -1194,19 +1261,23 @@ export class SELColdPath {
     if (style.margin) {
       style.margin = this.styleParser.parseMargin(style.margin);
     }
-    if (style.borderRadius || baseStyle['border-radius']) {
-      const radiusStr = style.borderRadius || baseStyle['border-radius'];
+    if (style.borderRadius) {
+      const radiusStr = style.borderRadius;
       style.borderRadius = this.styleParser.parseBorderRadius(radiusStr);
     }
-    if (style.textDecoration || baseStyle['text-decoration']) {
-      const decoStr = style.textDecoration || baseStyle['text-decoration'];
+    if (style.textDecoration) {
+      const decoStr = style.textDecoration;
       style.textDecoration = this.styleParser.parseTextDecoration(decoStr);
+    }
+    if (style.textAlign) {
+      const alignStr = style.textAlign;
+      style.textAlign = this.styleParser.parseTextAlign(alignStr);
     }
     if (style.animation) {
       style.animation = this.styleParser.parseAnimation(style.animation);
     }
-    if (style.lineHeight || baseStyle['line-height']) {
-      const lhStr = style.lineHeight || baseStyle['line-height'];
+    if (style.lineHeight) {
+      const lhStr = style.lineHeight;
       style.lineHeight = this.styleParser.parseLineHeight(lhStr);
     }
 

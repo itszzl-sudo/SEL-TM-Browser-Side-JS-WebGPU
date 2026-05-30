@@ -106,6 +106,8 @@ export class HTMLDocumentParser {
     const elements = [];
     let pos = 0;
 
+    const svgTags = ['svg', 'rect', 'circle', 'ellipse', 'line', 'path', 'polygon', 'polyline', 'text', 'tspan', 'g', 'defs', 'use', 'image', 'symbol', 'marker', 'clippath', 'lineargradient', 'radialgradient', 'stop', 'filter', 'feoffset', 'fegaussianblur', 'feblend', 'fecolormatrix', 'fecomponenttransfer', 'fefunca', 'fefuncb', 'fefuncg', 'fefuncr', 'femerge', 'femergenode', 'feimage', 'fetile', 'flood', 'background'];
+
     while (pos < content.length) {
       // 跳过空白字符和注释
       const commentMatch = content.substr(pos).match(/^<!--[\s\S]*?-->/);
@@ -149,8 +151,18 @@ export class HTMLDocumentParser {
         text: ''
       };
 
+      // 检查是否是 SVG 标签
+      if (tagName === 'svg') {
+        const svgEndMatch = content.substr(pos).match(/<\/svg>/i);
+        if (svgEndMatch) {
+          const svgContent = content.substr(0, pos);
+          element.children = this.parseElements(svgContent);
+          pos += svgEndMatch[0].length;
+        }
+      }
+
       // 检查是否是自闭合标签
-      if (attrsStr.endsWith('/') || ['img', 'br', 'hr', 'input', 'meta', 'link'].includes(tagName)) {
+      if (attrsStr.endsWith('/') || ['img', 'br', 'hr', 'input', 'meta', 'link', 'rect', 'circle', 'ellipse', 'line', 'path', 'polygon', 'polyline', 'stop'].includes(tagName)) {
         elements.push(element);
         continue;
       }

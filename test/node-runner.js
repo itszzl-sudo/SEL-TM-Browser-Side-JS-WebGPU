@@ -178,7 +178,7 @@ async function testStyleParser() {
   
   // 测试2: 驼峰转换
   const style2 = parser.parseStyle('font-size: 16px; background-color: red;');
-  assert(style2['font-size'] === '16px' && style2['background-color'] === 'red', '样式键保留原始格式');
+  assert(style2.fontSize === '16px' && style2.backgroundColor === 'red', '驼峰转换');
   
   // 测试3: 渐变解析 - linear
   const gradient = parser.parseGradient('linear-gradient(#1e88e5, #42a5f5)');

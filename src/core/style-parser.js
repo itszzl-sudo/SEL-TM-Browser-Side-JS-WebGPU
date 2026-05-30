@@ -7,8 +7,95 @@ import { ColorParser } from './color-parser.js';
 export class StyleParser {
   constructor() {
     this.colorParser = new ColorParser();
-    this.cssVariables = new Map(); // CSS 自定义变量存储
-    this.animationFrames = new Map(); // CSS 动画关键帧存储
+    this.cssVariables = new Map();
+    this.animationFrames = new Map();
+    this.pseudoElements = new Map();
+  }
+
+  /**
+   * 解析伪元素样式
+   * @param {string} cssText - CSS 文本
+   * @returns {Map} 伪元素映射
+   */
+  parsePseudoElements(cssText) {
+    const pseudoMap = new Map();
+
+    const selectorRegex = /([a-zA-Z0-9_.-]+)(::?(?:before|after|first-letter|first-line|selection))?\s*\{([^}]*)\}/g;
+    let match;
+
+    while ((match = selectorRegex.exec(cssText)) !== null) {
+      const selector = match[1];
+      const pseudoType = match[2] || 'element';
+      const properties = this.parseStyle(match[3]);
+
+      const key = pseudoType.startsWith(':') ? `${selector}${pseudoType}` : selector;
+      const pseudoStyles = pseudoMap.get(key) || {};
+
+      if (pseudoType.includes('before')) {
+        pseudoStyles.before = this._parsePseudoProperties(properties);
+      } else if (pseudoType.includes('after')) {
+        pseudoStyles.after = this._parsePseudoProperties(properties);
+      } else {
+        Object.assign(pseudoStyles, properties);
+      }
+
+      pseudoMap.set(key, pseudoStyles);
+    }
+
+    this.pseudoElements = pseudoMap;
+    return pseudoMap;
+  }
+
+  /**
+   * 解析伪元素属性
+   * @param {object} properties - 属性对象
+   * @returns {object} 伪元素属性
+   */
+  _parsePseudoProperties(properties) {
+    const pseudoProps = {};
+
+    if (properties.content) {
+      pseudoProps.content = properties.content.replace(/["']/g, '');
+    }
+    if (properties.display) {
+      pseudoProps.display = properties.display;
+    }
+    if (properties.width) {
+      pseudoProps.width = parseFloat(properties.width) || 'auto';
+    }
+    if (properties.height) {
+      pseudoProps.height = parseFloat(properties.height) || 'auto';
+    }
+    if (properties.background) {
+      pseudoProps.background = properties.background;
+    }
+    if (properties.color) {
+      pseudoProps.color = this.colorParser.hexToRgba(properties.color);
+    }
+    if (properties.position) {
+      pseudoProps.position = properties.position;
+    }
+
+    return pseudoProps;
+  }
+
+  /**
+   * 获取伪元素样式
+   * @param {string} selector - 选择器
+   * @param {string} pseudoType - 伪元素类型 (before/after)
+   * @returns {object|null} 伪元素样式
+   */
+  getPseudoElement(selector, pseudoType) {
+    const key = `${selector}::${pseudoType}`;
+    return this.pseudoElements.get(key) || null;
+  }
+
+  /**
+   * 获取所有伪元素
+   * @returns {Map} 伪元素映射
+   */
+  getAllPseudoElements() {
+    return this.pseudoElements;
   }
 
   /**
@@ -72,21 +159,31 @@ export class StyleParser {
    */
   parseStyle(styleStr) {
     if (!styleStr) return {};
-    
+
     const style = {};
     const pairs = styleStr.split(';').filter(p => p.trim());
-    
+
     pairs.forEach(item => {
       const [key, val] = item.split(':').map(s => s.trim());
       if (key && val) {
         if (key.startsWith('--')) {
           this.cssVariables.set(key, val);
         }
-        style[key] = val;
+        const camelKey = this.cssToCamelCase(key);
+        style[camelKey] = val;
       }
     });
-    
+
     return style;
+  }
+
+  /**
+   * CSS 属性名转换为驼峰形式
+   * @param {string} cssKey - CSS 属性名
+   * @returns {string} 驼峰形式的属性名
+   */
+  cssToCamelCase(cssKey) {
+    return cssKey.replace(/-([a-z])/g, (match, letter) => letter.toUpperCase());
   }
 
   /**
@@ -142,6 +239,36 @@ export class StyleParser {
   }
 
   /**
+   * 解析背景图片
+   * @param {string} bgStr - 背景字符串
+   * @returns {object} 背景对象
+   */
+  parseBackgroundImage(bgStr) {
+    if (!bgStr || bgStr === 'none') {
+      return { type: 'none' };
+    }
+
+    const urlMatch = bgStr.match(/url\s*\(\s*['"]?([^'")\s]+)['"]?\s*\)/i);
+    if (urlMatch) {
+      return {
+        type: 'image',
+        url: urlMatch[1],
+        loaded: false,
+        texture: null
+      };
+    }
+
+    if (bgStr.includes('gradient')) {
+      return {
+        type: 'gradient',
+        gradient: this.parseGradient(bgStr)
+      };
+    }
+
+    return { type: 'none' };
+  }
+
+  /**
    * 解析阴影
    * @param {string} shadowStr - 阴影字符串
    * @returns {object} 阴影对象
@@ -182,6 +309,89 @@ export class StyleParser {
     }
     
     return { x, y, blur, spread, color, inset };
+  }
+
+  /**
+   * 解析文字阴影
+   * @param {string} shadowStr - 阴影字符串
+   * @returns {object} 阴影对象
+   */
+  parseTextShadow(shadowStr) {
+    if (!shadowStr || shadowStr === 'none') return null;
+
+    const shadows = [];
+    const shadowParts = shadowStr.split(',').map(s => s.trim());
+
+    shadowParts.forEach(part => {
+      let x = 0, y = 0, blur = 0;
+      let color = [0, 0, 0, 1];
+
+      const numMatches = part.match(/-?[\d.]+(?=px)?/g) || [];
+      if (numMatches.length >= 2) {
+        x = parseFloat(numMatches[0]) || 0;
+        y = parseFloat(numMatches[1]) || 0;
+        blur = numMatches[2] ? parseFloat(numMatches[2]) : 0;
+      }
+
+      const colorPatterns = [
+        /rgba?\s*\([^)]+\)/,
+        /hsla?\s*\([^)]+\)/,
+        /#[0-9a-fA-F]{3,8}/,
+        /[a-zA-Z]+/
+      ];
+
+      for (const pattern of colorPatterns) {
+        const colorMatch = part.match(pattern);
+        if (colorMatch) {
+          color = this.colorParser.hexToRgba(colorMatch[0]);
+          break;
+        }
+      }
+
+      shadows.push({ x, y, blur, color });
+    });
+
+    return shadows;
+  }
+
+  /**
+   * 解析过渡动画
+   * @param {string} transitionStr - 过渡字符串
+   * @returns {object} 过渡对象
+   */
+  parseTransition(transitionStr) {
+    if (!transitionStr || transitionStr === 'none') {
+      return { property: 'all', duration: 0, timingFunction: 'ease', delay: 0 };
+    }
+
+    const parts = transitionStr.split(',').map(s => s.trim());
+    const transitions = parts.map(part => {
+      const tokens = part.split(/\s+/);
+      let property = 'all';
+      let duration = 0;
+      let timingFunction = 'ease';
+      let delay = 0;
+
+      tokens.forEach(token => {
+        if (token.endsWith('ms') || token.endsWith('s')) {
+          if (duration === 0) {
+            duration = token.endsWith('ms') ? parseFloat(token) : parseFloat(token) * 1000;
+          } else {
+            delay = token.endsWith('ms') ? parseFloat(token) : parseFloat(token) * 1000;
+          }
+        } else if (token.includes('cubic-bezier')) {
+          timingFunction = token;
+        } else if (token === 'ease' || token === 'linear' || token === 'ease-in' || token === 'ease-out' || token === 'ease-in-out') {
+          timingFunction = token;
+        } else if (token !== 'all' && token !== 'none') {
+          property = token;
+        }
+      });
+
+      return { property, duration, timingFunction, delay };
+    });
+
+    return transitions[0] || { property: 'all', duration: 0, timingFunction: 'ease', delay: 0 };
   }
 
   /**
@@ -228,6 +438,31 @@ export class StyleParser {
   }
 
   /**
+   * 解析多列布局
+   * @param {object} style - 样式对象
+   * @returns {object} 多列配置
+   */
+  parseMultiColumn(style) {
+    const columnCount = parseInt(style.columnCount) || 'auto';
+    const columnWidth = parseFloat(style.columnWidth) || 'auto';
+    const columnGap = parseFloat(style.columnGap) || style.columnRule || 0;
+    const columnRuleColor = this.colorParser.hexToRgba(style.columnRuleColor || '#000');
+    const columnRuleWidth = parseFloat(style.columnRuleWidth) || 1;
+    const columnRuleStyle = style.columnRuleStyle || 'solid';
+
+    return {
+      columnCount,
+      columnWidth,
+      columnGap,
+      columnRule: {
+        width: columnRuleWidth,
+        style: columnRuleStyle,
+        color: columnRuleColor
+      }
+    };
+  }
+
+  /**
    * 解析 border-radius (支持四角独立)
    * @param {string} radiusStr - 圆角字符串
    * @returns {object} 圆角对象
@@ -266,6 +501,57 @@ export class StyleParser {
         bottomLeft: vals[3]
       };
     }
+  }
+
+  /**
+   * 解析 text-align
+   * @param {string} alignStr - 文本对齐字符串
+   * @returns {string} 文本对齐方式
+   */
+  parseTextAlign(alignStr) {
+    if (!alignStr) return 'left';
+
+    const validAligns = ['left', 'right', 'center', 'justify', 'start', 'end'];
+    const align = alignStr.toLowerCase().trim();
+
+    if (validAligns.includes(align)) {
+      return align;
+    }
+
+    return 'left';
+  }
+
+  /**
+   * 解析 line-height
+   * @param {string} lineHeightStr - 行高字符串
+   * @returns {number} 行高值（倍数或像素值）
+   */
+  parseLineHeight(lineHeightStr) {
+    if (!lineHeightStr) return 1.5;
+
+    const trimmed = lineHeightStr.trim();
+
+    if (trimmed.endsWith('px')) {
+      const pxValue = parseFloat(trimmed);
+      return isNaN(pxValue) ? 1.5 : pxValue;
+    }
+
+    if (trimmed.endsWith('em')) {
+      const emValue = parseFloat(trimmed);
+      return isNaN(emValue) ? 1.5 : emValue;
+    }
+
+    if (trimmed.endsWith('%')) {
+      const percentValue = parseFloat(trimmed);
+      return isNaN(percentValue) ? 1.5 : percentValue / 100;
+    }
+
+    const numValue = parseFloat(trimmed);
+    if (!isNaN(numValue)) {
+      return numValue;
+    }
+
+    return 1.5;
   }
 
   /**
@@ -439,6 +725,87 @@ export class StyleParser {
   }
 
   /**
+   * 解析 CSS 关键帧
+   * @param {string} keyframesStr - 关键帧字符串
+   * @returns {object} 关键帧对象
+   */
+  parseKeyframes(keyframesStr) {
+    if (!keyframesStr) return null;
+
+    const frames = [];
+    const percentageRegex = /(\d+)%\s*\{([^}]*)\}/g;
+    let match;
+
+    while ((match = percentageRegex.exec(keyframesStr)) !== null) {
+      const percentage = parseInt(match[1]);
+      const properties = this._parseKeyframeProperties(match[2]);
+
+      if (percentage === 0) {
+        frames.from = properties;
+      } else if (percentage === 100) {
+        frames.to = properties;
+      } else {
+        frames.push({ percentage, ...properties });
+      }
+    }
+
+    frames.sort((a, b) => {
+      const percentA = a.percentage !== undefined ? a.percentage : (a === frames.from ? 0 : 100);
+      const percentB = b.percentage !== undefined ? b.percentage : (b === frames.to ? 100 : 0);
+      return percentA - percentB;
+    });
+
+    return { frames, name: this._extractKeyframesName(keyframesStr) };
+  }
+
+  /**
+   * 解析关键帧属性
+   * @param {string} propsStr - 属性字符串
+   * @returns {object} 属性对象
+   */
+  _parseKeyframeProperties(propsStr) {
+    const props = {};
+    const declarations = propsStr.split(';').filter(d => d.trim());
+
+    declarations.forEach(decl => {
+      const [property, value] = decl.split(':').map(s => s.trim());
+      if (property && value) {
+        props[property] = value;
+      }
+    });
+
+    return props;
+  }
+
+  /**
+   * 提取关键帧名称
+   * @param {string} keyframesStr - 关键帧字符串
+   * @returns {string} 关键帧名称
+   */
+  _extractKeyframesName(keyframesStr) {
+    const nameMatch = keyframesStr.match(/@keyframes\s+([a-zA-Z0-9_-]+)/);
+    return nameMatch ? nameMatch[1] : 'unnamed';
+  }
+
+  /**
+   * 存储关键帧规则
+   * @param {string} name - 关键帧名称
+   * @param {object} keyframes - 关键帧对象
+   */
+  addKeyframesRule(name, keyframes) {
+    this.animationFrames.set(name, keyframes);
+  }
+
+  /**
+   * 获取关键帧规则
+   * @param {string} name - 关键帧名称
+   * @returns {object|null} 关键帧对象
+   */
+  getKeyframes(name) {
+    return this.animationFrames.get(name) || null;
+  }
+
+  /**
    * 解析 line-height
    * @param {string|number} lhStr - 行高字符串
    * @returns {number} 行高值
@@ -446,14 +813,14 @@ export class StyleParser {
   parseLineHeight(lhStr) {
     if (!lhStr) return 1.2;
     if (typeof lhStr === 'number') return lhStr;
-    
+
     const num = parseFloat(lhStr);
     if (isNaN(num)) return 1.2;
-    
+
     if (lhStr.includes('px') || lhStr.includes('em') || lhStr.includes('rem') || lhStr.includes('pt')) {
       return num;
     }
-    
+
     return num;
   }
 }

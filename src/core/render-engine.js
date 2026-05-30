@@ -259,7 +259,7 @@ export class SELWebGPU {
    */
   async initPipelines(format) {
     try {
-      // 布局渲染管线
+      // 布局渲染管线 - 支持四角独立圆角、skew变换、滤镜
       const layoutShaderCode = `
         struct Vertex {
           @location(0) pos: vec2f,
@@ -268,10 +268,16 @@ export class SELWebGPU {
           @location(3) gradEnd: vec4f,
           @location(4) uv: vec2f,
           @location(5) rect: vec4f,
-          @location(6) radius: f32,
-          @location(7) translate: vec2f,
-          @location(8) rotate: f32,
-          @location(9) scale: vec2f
+          @location(6) radiusTL: f32,
+          @location(7) radiusTR: f32,
+          @location(8) radiusBR: f32,
+          @location(9) radiusBL: f32,
+          @location(10) translate: vec2f,
+          @location(11) rotate: f32,
+          @location(12) scale: vec2f,
+          @location(13) skewX: f32,
+          @location(14) skewY: f32,
+          @location(15) filterBlur: f32
         }
         struct VOut {
           @builtin(position) pos: vec4f,
@@ -280,16 +286,30 @@ export class SELWebGPU {
           @location(2) gradEnd: vec4f,
           @location(3) uv: vec4f,
           @location(4) rect: vec4f,
-          @location(5) radius: f32
+          @location(5) radiusTL: f32,
+          @location(6) radiusTR: f32,
+          @location(7) radiusBR: f32,
+          @location(8) radiusBL: f32,
+          @location(9) filterBlur: f32
         }
         @vertex fn vs(v: Vertex) -> VOut {
           var out: VOut;
 
-          var scaledPos = v.pos * v.scale;
+          // 应用缩放
+          var transformedPos = v.pos * v.scale;
+
+          // 应用斜切变换 (skew)
+          let skewXRad = v.skewX * 0.0174533; // deg to rad
+          let skewYRad = v.skewY * 0.0174533;
+          let skewedX = transformedPos.x + transformedPos.y * tan(skewXRad);
+          let skewedY = transformedPos.y + transformedPos.x * tan(skewYRad);
+          transformedPos = vec2f(skewedX, skewedY);
+
+          // 应用旋转
           let cosR = cos(v.rotate);
           let sinR = sin(v.rotate);
-          let rotatedX = scaledPos.x * cosR - scaledPos.y * sinR;
-          let rotatedY = scaledPos.x * sinR + scaledPos.y * cosR;
+          let rotatedX = transformedPos.x * cosR - transformedPos.y * sinR;
+          let rotatedY = transformedPos.x * sinR + transformedPos.y * cosR;
           let finalPos = vec2f(rotatedX, rotatedY) + v.translate;
 
           out.pos = vec4f(finalPos, 0.0, 1.0);
@@ -298,7 +318,11 @@ export class SELWebGPU {
           out.gradEnd = v.gradEnd;
           out.uv = vec4f(v.uv, 0.0, 0.0);
           out.rect = v.rect;
-          out.radius = v.radius;
+          out.radiusTL = v.radiusTL;
+          out.radiusTR = v.radiusTR;
+          out.radiusBR = v.radiusBR;
+          out.radiusBL = v.radiusBL;
+          out.filterBlur = v.filterBlur;
           return out;
         }
         @fragment fn fs(in: VOut) -> @location(0) vec4f {
@@ -306,10 +330,30 @@ export class SELWebGPU {
           let rectMax = in.rect.zw;
           let center = (rectMin + rectMax) / 2.0;
           let halfSize = (rectMax - rectMin) / 2.0;
-          let cornerRadius = min(in.radius, min(halfSize.x, halfSize.y));
+
+          // 根据位置选择正确的圆角半径
+          let inTopHalf = in.pos.y > center.y;
+          let inLeftHalf = in.pos.x < center.x;
+          var cornerRadius: f32;
+          if (inTopHalf && inLeftHalf) {
+            cornerRadius = in.radiusTL;
+          } else if (inTopHalf && !inLeftHalf) {
+            cornerRadius = in.radiusTR;
+          } else if (!inTopHalf && !inLeftHalf) {
+            cornerRadius = in.radiusBR;
+          } else {
+            cornerRadius = in.radiusBL;
+          }
+
+          cornerRadius = min(cornerRadius, min(halfSize.x, halfSize.y));
           let d = abs(in.pos.xy - center) - halfSize + vec2<f32>(cornerRadius);
           let dist = length(max(d, vec2<f32>(0.0))) + min(max(d.x, d.y), 0.0);
-          let alpha = 1.0 - smoothstep(cornerRadius - 1.0, cornerRadius + 1.0, dist);
+          var alpha = 1.0 - smoothstep(cornerRadius - 1.0, cornerRadius + 1.0, dist);
+
+          // 应用滤镜模糊效果
+          if (in.filterBlur > 0.0) {
+            alpha = alpha * (1.0 - clamp(in.filterBlur / 20.0, 0.0, 0.5));
+          }
 
           let gradMix = mix(in.gradStart, in.gradEnd, in.uv.y);
           let finalColor = select(in.color, gradMix, in.gradEnd.a > 0.0);
@@ -328,7 +372,7 @@ export class SELWebGPU {
           module: layoutShaderModule,
           entryPoint: 'vs',
           buffers: [{
-            arrayStride: 104,
+            arrayStride: 128,
             attributes: [
               { shaderLocation: 0, offset: 0, format: 'float32x2' },
               { shaderLocation: 1, offset: 8, format: 'float32x4' },
@@ -337,9 +381,15 @@ export class SELWebGPU {
               { shaderLocation: 4, offset: 56, format: 'float32x2' },
               { shaderLocation: 5, offset: 64, format: 'float32x4' },
               { shaderLocation: 6, offset: 80, format: 'float32' },
-              { shaderLocation: 7, offset: 84, format: 'float32x2' },
-              { shaderLocation: 8, offset: 92, format: 'float32' },
-              { shaderLocation: 9, offset: 96, format: 'float32x2' }
+              { shaderLocation: 7, offset: 84, format: 'float32' },
+              { shaderLocation: 8, offset: 88, format: 'float32' },
+              { shaderLocation: 9, offset: 92, format: 'float32' },
+              { shaderLocation: 10, offset: 96, format: 'float32x2' },
+              { shaderLocation: 11, offset: 104, format: 'float32' },
+              { shaderLocation: 12, offset: 108, format: 'float32x2' },
+              { shaderLocation: 13, offset: 116, format: 'float32' },
+              { shaderLocation: 14, offset: 120, format: 'float32' },
+              { shaderLocation: 15, offset: 124, format: 'float32' }
             ]
           }]
         },
@@ -556,6 +606,12 @@ export class SELWebGPU {
 
       // 渲染布局色块
       this._renderLayout(pass, this.layoutTasks);
+
+      // 渲染文本装饰
+      this._renderTextDecorations(pass, this.layoutTasks);
+
+      // 渲染文字阴影
+      this._renderTextShadows(pass, this.layoutTasks);
     }
 
     pass.end();
@@ -586,7 +642,7 @@ export class SELWebGPU {
       this.device.queue.writeBuffer(shadowBuf, 0, shadowData);
       pass.setPipeline(this.layoutPipeline);
       pass.setVertexBuffer(0, shadowBuf);
-      pass.draw(shadowData.length / 26);
+      pass.draw(shadowData.length / 32);
 
       // 延迟销毁 buffer
       setTimeout(() => this._destroyBuffer(shadowBuf), 100);
@@ -610,7 +666,7 @@ export class SELWebGPU {
       this.device.queue.writeBuffer(borderBuf, 0, borderData);
       pass.setPipeline(this.layoutPipeline);
       pass.setVertexBuffer(0, borderBuf);
-      pass.draw(borderData.length / 26);
+      pass.draw(borderData.length / 32);
 
       setTimeout(() => this._destroyBuffer(borderBuf), 100);
     } catch (error) {
@@ -633,7 +689,7 @@ export class SELWebGPU {
       this.device.queue.writeBuffer(vertexBuf, 0, vertexData);
       pass.setPipeline(this.layoutPipeline);
       pass.setVertexBuffer(0, vertexBuf);
-      pass.draw(vertexData.length / 26);
+      pass.draw(vertexData.length / 32);
 
       setTimeout(() => this._destroyBuffer(vertexBuf), 100);
     } catch (error) {
@@ -655,6 +711,8 @@ export class SELWebGPU {
 
       const bgColor = task.backgroundColor || '#4fc3f7';
       const baseColor = this.hexToRgba(bgColor);
+      const opacity = typeof task.opacity === 'number' ? Math.max(0, Math.min(1, task.opacity)) : 1;
+      baseColor[3] *= opacity;
 
       let gradient = null;
       if (task.gradient) {
@@ -673,7 +731,13 @@ export class SELWebGPU {
       const rectMaxX = ((task.x + task.width) / w) * 2 - 1;
       const rectMaxY = 1 - ((task.y + task.height) / h) * 2;
       const rect = [rectMinX, rectMinY, rectMaxX, rectMaxY];
-      const radius = (task.borderRadius || 0) / w * 2;
+
+      // 四角独立圆角
+      const borderRadius = task.borderRadius || {};
+      const radiusTL = (typeof borderRadius === 'object' ? (borderRadius.topLeft || 0) : borderRadius) / w * 2;
+      const radiusTR = (typeof borderRadius === 'object' ? (borderRadius.topRight || 0) : borderRadius) / w * 2;
+      const radiusBR = (typeof borderRadius === 'object' ? (borderRadius.bottomRight || 0) : borderRadius) / w * 2;
+      const radiusBL = (typeof borderRadius === 'object' ? (borderRadius.bottomLeft || 0) : borderRadius) / w * 2;
 
       const transform = task.transform || {};
       const trans = transform.translate && Array.isArray(transform.translate) && transform.translate.length >= 2
@@ -684,14 +748,17 @@ export class SELWebGPU {
       const sc = transform.scale && Array.isArray(transform.scale) && transform.scale.length >= 2
         ? transform.scale
         : [1, 1];
+      const skewX = typeof transform.skewX === 'number' ? transform.skewX : 0;
+      const skewY = typeof transform.skewY === 'number' ? transform.skewY : 0;
+      const filterBlur = typeof task.filter === 'object' && task.filter.blur ? task.filter.blur : 0;
 
       vertices.push(
-        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radius, ...translate, rotate, ...sc,
-        x1, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radius, ...translate, rotate, ...sc,
-        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radius, ...translate, rotate, ...sc,
-        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radius, ...translate, rotate, ...sc,
-        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radius, ...translate, rotate, ...sc,
-        x2, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radius, ...translate, rotate, ...sc
+        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...sc, skewX, skewY, filterBlur,
+        x1, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv01, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...sc, skewX, skewY, filterBlur,
+        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...sc, skewX, skewY, filterBlur,
+        x1, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv10, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...sc, skewX, skewY, filterBlur,
+        x2, y2, ...baseColor, ...gradStart, ...gradEnd, ...uv112, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...sc, skewX, skewY, filterBlur,
+        x2, y1, ...baseColor, ...gradStart, ...gradEnd, ...uv002, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...sc, skewX, skewY, filterBlur
       );
     });
 
@@ -704,41 +771,54 @@ export class SELWebGPU {
     const h = this.canvas.height;
 
     tasks.forEach(task => {
-      const shadow = typeof task.boxShadow === 'object' ? task.boxShadow :
-                     (task.boxShadow ? this.parseBoxShadow(task.boxShadow) : null);
-      if (!shadow || shadow.blur <= 0) return;
+      const shadowArray = typeof task.boxShadow === 'object' && Array.isArray(task.boxShadow) ? task.boxShadow :
+                         (task.boxShadow ? this.parseBoxShadow(task.boxShadow) : null);
+      if (!shadowArray || shadowArray.length === 0) return;
 
-      const shadowX = task.x + shadow.x;
-      const shadowY = task.y + shadow.y;
-      const shadowW = task.width + shadow.blur * 2;
-      const shadowH = task.height + shadow.blur * 2;
+      shadowArray.forEach(shadow => {
+        if (shadow.blur <= 0 && !shadow.inset) return;
 
-      const x1 = (shadowX - shadow.blur) / w * 2 - 1;
-      const y1 = 1 - (shadowY - shadow.blur) / h * 2;
-      const x2 = ((shadowX + shadowW) + shadow.blur) / w * 2 - 1;
-      const y2 = 1 - ((shadowY + shadowH) + shadow.blur) / h * 2;
+        let shadowX, shadowY, shadowW, shadowH;
 
-      const shadowColor = [...shadow.color];
-      shadowColor[3] *= 0.5;
+        if (shadow.inset) {
+          shadowX = task.x - shadow.spread;
+          shadowY = task.y - shadow.spread;
+          shadowW = task.width + shadow.spread * 2;
+          shadowH = task.height + shadow.spread * 2;
+        } else {
+          shadowX = task.x + shadow.x;
+          shadowY = task.y + shadow.y;
+          shadowW = task.width + shadow.blur * 2;
+          shadowH = task.height + shadow.blur * 2;
+        }
 
-      const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0], uv112 = [1, 1], uv002 = [0, 0];
+        const x1 = (shadowX - shadow.blur) / w * 2 - 1;
+        const y1 = 1 - (shadowY - shadow.blur) / h * 2;
+        const x2 = ((shadowX + shadowW) + shadow.blur) / w * 2 - 1;
+        const y2 = 1 - ((shadowY + shadowH) + shadow.blur) / h * 2;
 
-      const rect = [-1, -1, 1, 1];
-      const radius = 0;
+        const shadowColor = [...shadow.color];
+        shadowColor[3] *= shadow.inset ? 0.3 : 0.5;
 
-      const transform = task.transform || { translate: [0, 0], rotate: 0, scale: [1, 1] };
-      const translate = [transform.translate[0] / w * 2, -transform.translate[1] / h * 2];
-      const rotate = transform.rotate * Math.PI / 180;
-      const scale = transform.scale;
+        const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0], uv112 = [1, 1], uv002 = [0, 0];
 
-      vertices.push(
-        x1, y1, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv00, ...rect, radius, ...translate, rotate, ...scale,
-        x1, y2, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv01, ...rect, radius, ...translate, rotate, ...scale,
-        x2, y2, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv11, ...rect, radius, ...translate, rotate, ...scale,
-        x1, y1, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv10, ...rect, radius, ...translate, rotate, ...scale,
-        x2, y2, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv112, ...rect, radius, ...translate, rotate, ...scale,
-        x2, y1, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv002, ...rect, radius, ...translate, rotate, ...scale
-      );
+        const rect = [-1, -1, 1, 1];
+        const radiusTL = 0, radiusTR = 0, radiusBR = 0, radiusBL = 0;
+
+        const transform = task.transform || { translate: [0, 0], rotate: 0, scale: [1, 1] };
+        const translate = [transform.translate[0] / w * 2, -transform.translate[1] / h * 2];
+        const rotate = transform.rotate * Math.PI / 180;
+        const scale = transform.scale;
+
+        vertices.push(
+          x1, y1, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1, y2, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv01, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2, y2, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1, y1, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv10, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2, y2, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv112, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2, y1, ...shadowColor, [0, 0, 0, 0], [0, 0, 0, 0], ...uv002, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0
+        );
+      });
     });
 
     return new Float32Array(vertices);
@@ -792,7 +872,7 @@ export class SELWebGPU {
         const color = b.color || [0, 0, 0, 1];
         const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0];
         const rect = [-1, -1, 1, 1];
-        const radius = 0;
+        const radiusTL = 0, radiusTR = 0, radiusBR = 0, radiusBL = 0;
 
         const transform = task.transform || { translate: [0, 0], rotate: 0, scale: [1, 1] };
         const translate = [transform.translate[0] / w * 2, -transform.translate[1] / h * 2];
@@ -800,17 +880,186 @@ export class SELWebGPU {
         const scale = transform.scale;
 
         vertices.push(
-          x1n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius, ...translate, rotate, ...scale,
-          x1n, y2n, ...color, ...color, ...color, ...uv01, ...rect, radius, ...translate, rotate, ...scale,
-          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius, ...translate, rotate, ...scale,
-          x1n, y1n, ...color, ...color, ...color, ...uv10, ...rect, radius, ...translate, rotate, ...scale,
-          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radius, ...translate, rotate, ...scale,
-          x2n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radius, ...translate, rotate, ...scale
+          x1n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1n, y2n, ...color, ...color, ...color, ...uv01, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1n, y1n, ...color, ...color, ...color, ...uv10, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y2n, ...color, ...color, ...color, ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y1n, ...color, ...color, ...color, ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0
         );
       });
     });
 
     return new Float32Array(vertices);
+  }
+
+  /**
+   * 生成文本装饰顶点数据
+   * 支持下划线(underline)、删除线(line-through)、上划线(overline)
+   */
+  generateTextDecorationVertices(tasks) {
+    const vertices = [];
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    tasks.forEach(task => {
+      const textDeco = task.textDecoration;
+      if (!textDeco || textDeco.line === 'none') return;
+
+      const fontSize = task.fontSize || 16;
+      const textWidth = task.width || 100;
+      const textHeight = task.height || fontSize;
+      const thickness = textDeco.thickness || 2;
+      const decoColor = textDeco.color || [0, 0, 0, 1];
+
+      const lineTypes = textDeco.line.split(' ');
+      lineTypes.forEach(lineType => {
+        let yOffset, yHeight;
+        switch (lineType) {
+          case 'underline':
+            yOffset = textHeight - thickness - 2;
+            yHeight = thickness;
+            break;
+          case 'overline':
+            yOffset = 2;
+            yHeight = thickness;
+            break;
+          case 'line-through':
+            yOffset = textHeight * 0.4;
+            yHeight = thickness;
+            break;
+          default:
+            return;
+        }
+
+        const x1 = task.x;
+        const y1 = task.y + yOffset;
+        const x2 = task.x + textWidth;
+        const y2 = task.y + yOffset + yHeight;
+
+        const x1n = (x1 / w) * 2 - 1;
+        const y1n = 1 - (y1 / h) * 2;
+        const x2n = (x2 / w) * 2 - 1;
+        const y2n = 1 - (y2 / h) * 2;
+
+        const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0];
+        const rect = [-1, -1, 1, 1];
+        const radiusTL = 0, radiusTR = 0, radiusBR = 0, radiusBL = 0;
+        const translate = [0, 0];
+        const rotate = 0;
+        const scale = [1, 1];
+
+        vertices.push(
+          x1n, y1n, ...decoColor, ...decoColor, ...decoColor, ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1n, y2n, ...decoColor, ...decoColor, ...decoColor, ...uv01, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y2n, ...decoColor, ...decoColor, ...decoColor, ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1n, y1n, ...decoColor, ...decoColor, ...decoColor, ...uv10, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y2n, ...decoColor, ...decoColor, ...decoColor, ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y1n, ...decoColor, ...decoColor, ...decoColor, ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0
+        );
+      });
+    });
+
+    return new Float32Array(vertices);
+  }
+
+  /**
+   * 渲染文本装饰
+   */
+  _renderTextDecorations(pass, tasks) {
+    const decoData = this.generateTextDecorationVertices(tasks);
+    if (decoData.length === 0) return;
+
+    const decoBuf = this._createBuffer(decoData.byteLength, GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST);
+    if (!decoBuf) return;
+
+    try {
+      this.device.queue.writeBuffer(decoBuf, 0, decoData);
+      pass.setPipeline(this.layoutPipeline);
+      pass.setVertexBuffer(0, decoBuf);
+      pass.draw(decoData.length / 32);
+
+      setTimeout(() => this._destroyBuffer(decoBuf), 100);
+    } catch (error) {
+      this._reportError(`文本装饰渲染失败: ${error.message}`, error);
+      this._destroyBuffer(decoBuf);
+    }
+  }
+
+  /**
+   * 生成文字阴影顶点数据
+   */
+  generateTextShadowVertexData(tasks) {
+    const vertices = [];
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    tasks.forEach(task => {
+      const textShadow = task.textShadow;
+      if (!textShadow || !Array.isArray(textShadow) || textShadow.length === 0) return;
+
+      const fontSize = task.fontSize || 16;
+      const textWidth = task.width || 100;
+      const textHeight = task.height || fontSize;
+
+      textShadow.forEach(shadow => {
+        const sx = shadow.x || 0;
+        const sy = shadow.y || 0;
+        const blur = shadow.blur || 0;
+        const shadowColor = shadow.color || [0, 0, 0, 0.5];
+
+        const x1 = task.x + sx - blur;
+        const y1 = task.y + sy - blur;
+        const x2 = task.x + textWidth + sx + blur;
+        const y2 = task.y + textHeight + sy + blur;
+
+        const x1n = (x1 / w) * 2 - 1;
+        const y1n = 1 - (y1 / h) * 2;
+        const x2n = (x2 / w) * 2 - 1;
+        const y2n = 1 - (y2 / h) * 2;
+
+        const uv00 = [0, 0], uv01 = [0, 1], uv11 = [1, 1], uv10 = [1, 0];
+        const rect = [-1, -1, 1, 1];
+        const radiusTL = 0, radiusTR = 0, radiusBR = 0, radiusBL = 0;
+        const translate = [0, 0];
+        const rotate = 0;
+        const scale = [1, 1];
+
+        vertices.push(
+          x1n, y1n, ...shadowColor, ...shadowColor, ...shadowColor, ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1n, y2n, ...shadowColor, ...shadowColor, ...shadowColor, ...uv01, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y2n, ...shadowColor, ...shadowColor, ...shadowColor, ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x1n, y1n, ...shadowColor, ...shadowColor, ...shadowColor, ...uv10, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y2n, ...shadowColor, ...shadowColor, ...shadowColor, ...uv11, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0,
+          x2n, y1n, ...shadowColor, ...shadowColor, ...shadowColor, ...uv00, ...rect, radiusTL, radiusTR, radiusBR, radiusBL, ...translate, rotate, ...scale, 0, 0, 0
+        );
+      });
+    });
+
+    return new Float32Array(vertices);
+  }
+
+  /**
+   * 渲染文字阴影
+   */
+  _renderTextShadows(pass, tasks) {
+    const shadowData = this.generateTextShadowVertexData(tasks);
+    if (shadowData.length === 0) return;
+
+    const shadowBuf = this._createBuffer(shadowData.byteLength, GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST);
+    if (!shadowBuf) return;
+
+    try {
+      this.device.queue.writeBuffer(shadowBuf, 0, shadowData);
+      pass.setPipeline(this.layoutPipeline);
+      pass.setVertexBuffer(0, shadowBuf);
+      pass.draw(shadowData.length / 32);
+
+      setTimeout(() => this._destroyBuffer(shadowBuf), 100);
+    } catch (error) {
+      this._reportError(`文字阴影渲染失败: ${error.message}`, error);
+      this._destroyBuffer(shadowBuf);
+    }
   }
 
   /**
@@ -912,27 +1161,36 @@ export class SELWebGPU {
   }
 
   parseBoxShadow(shadowStr) {
-    if (!shadowStr) return { x: 0, y: 0, blur: 0, spread: 0, color: [0, 0, 0, 0.3], inset: false };
+    if (!shadowStr) return [{ x: 0, y: 0, blur: 0, spread: 0, color: [0, 0, 0, 0.3], inset: false }];
 
-    const numMatches = shadowStr.match(/-?[\d.]+(?=px)?/g) || [];
-    const colorPatterns = [/rgba?\s*\([^)]+\)/, /#[0-9a-fA-F]{3,8}/, /[a-zA-Z]+/];
+    const shadows = [];
+    const shadowParts = shadowStr.split(',').map(s => s.trim());
 
-    let color = [0, 0, 0, 0.3];
-    for (const pattern of colorPatterns) {
-      const match = shadowStr.match(pattern);
-      if (match) {
-        color = this.hexToRgba(match[0]);
-        break;
+    for (const part of shadowParts) {
+      if (!part) continue;
+
+      const numMatches = part.match(/-?[\d.]+(?=px)?/g) || [];
+      const colorPatterns = [/rgba?\s*\([^)]+\)/, /#[0-9a-fA-F]{3,8}/, /[a-zA-Z]+/];
+
+      let color = [0, 0, 0, 0.3];
+      for (const pattern of colorPatterns) {
+        const match = part.match(pattern);
+        if (match) {
+          color = this.hexToRgba(match[0]);
+          break;
+        }
       }
+
+      shadows.push({
+        x: numMatches[0] ? parseFloat(numMatches[0]) : 0,
+        y: numMatches[1] ? parseFloat(numMatches[1]) : 0,
+        blur: numMatches[2] ? parseFloat(numMatches[2]) : 4,
+        spread: numMatches[3] ? parseFloat(numMatches[3]) : 0,
+        color,
+        inset: part.includes('inset')
+      });
     }
 
-    return {
-      x: numMatches[0] ? parseFloat(numMatches[0]) : 0,
-      y: numMatches[1] ? parseFloat(numMatches[1]) : 0,
-      blur: numMatches[2] ? parseFloat(numMatches[2]) : 4,
-      spread: numMatches[3] ? parseFloat(numMatches[3]) : 0,
-      color,
-      inset: shadowStr.includes('inset')
-    };
+    return shadows.length > 0 ? shadows : [{ x: 0, y: 0, blur: 0, spread: 0, color: [0, 0, 0, 0.3], inset: false }];
   }
 }
