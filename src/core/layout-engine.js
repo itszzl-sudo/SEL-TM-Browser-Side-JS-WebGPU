@@ -1194,15 +1194,32 @@ export class SELColdPath {
     if (style.margin) {
       style.margin = this.styleParser.parseMargin(style.margin);
     }
+    if (style.borderRadius || baseStyle['border-radius']) {
+      const radiusStr = style.borderRadius || baseStyle['border-radius'];
+      style.borderRadius = this.styleParser.parseBorderRadius(radiusStr);
+    }
+    if (style.textDecoration || baseStyle['text-decoration']) {
+      const decoStr = style.textDecoration || baseStyle['text-decoration'];
+      style.textDecoration = this.styleParser.parseTextDecoration(decoStr);
+    }
+    if (style.animation) {
+      style.animation = this.styleParser.parseAnimation(style.animation);
+    }
+    if (style.lineHeight || baseStyle['line-height']) {
+      const lhStr = style.lineHeight || baseStyle['line-height'];
+      style.lineHeight = this.styleParser.parseLineHeight(lhStr);
+    }
 
     if (style.width) {
-      style.width = parseFloat(style.width) || style.width;
+      const widthVal = this.styleParser.parseVar(style.width, style.width);
+      style.width = parseFloat(this.evaluateCalc(widthVal, 100)) || widthVal;
     }
     if (style.height) {
-      style.height = parseFloat(style.height) || style.height;
+      const heightVal = this.styleParser.parseVar(style.height, style.height);
+      style.height = parseFloat(this.evaluateCalc(heightVal, 100)) || heightVal;
     }
-    if (style.borderRadius) {
-      style.borderRadius = parseFloat(style.borderRadius) || style.borderRadius;
+    if (style.fontSize) {
+      style.fontSize = parseFloat(style.fontSize) || 16;
     }
 
     return style;

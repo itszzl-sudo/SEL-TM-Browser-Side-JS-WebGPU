@@ -180,15 +180,23 @@ async function testStyleParser() {
   const style2 = parser.parseStyle('font-size: 16px; background-color: red;');
   assert(style2['font-size'] === '16px' && style2['background-color'] === 'red', '样式键保留原始格式');
   
-  // 测试3: 渐变解析
+  // 测试3: 渐变解析 - linear
   const gradient = parser.parseGradient('linear-gradient(#1e88e5, #42a5f5)');
-  assert(gradient && gradient.start && gradient.end, '渐变解析');
+  assert(gradient && gradient.start && gradient.end && gradient.type === 'linear', '渐变解析 - linear');
   
-  // 测试4: 阴影解析
+  // 测试4: 渐变解析 - radial
+  const radialGradient = parser.parseGradient('radial-gradient(circle, red, blue)');
+  assert(radialGradient && radialGradient.type === 'radial', '渐变解析 - radial');
+  
+  // 测试5: 渐变解析 - conic
+  const conicGradient = parser.parseGradient('conic-gradient(from 0deg, red, green)');
+  assert(conicGradient && conicGradient.type === 'conic', '渐变解析 - conic');
+  
+  // 测试6: 阴影解析
   const shadow = parser.parseBoxShadow('0 4px 12px rgba(0,0,0,0.3)');
   assert(shadow.x === 0 && shadow.y === 4 && shadow.blur === 12, '阴影解析');
   
-  // 测试5: 变换解析
+  // 测试7: 变换解析
   const transform = parser.parseTransform('translate(10px, 20px) rotate(15deg)');
   assert(
     deepEqual(transform.translate, [10, 20]) && 
@@ -196,13 +204,51 @@ async function testStyleParser() {
     '变换解析'
   );
   
-  // 测试6: 边框解析
+  // 测试8: 边框解析
   const border = parser.parseBorder('3px solid #e91e63');
   assert(border.width === 3 && border.style === 'solid', '边框解析');
   
-  // 测试7: padding解析
+  // 测试9: padding解析
   const padding = parser.parsePadding('10px 20px');
   assert(padding.top === 10 && padding.right === 20, 'padding解析');
+  
+  // 测试10: border-radius解析 - 四角独立
+  const borderRadius4 = parser.parseBorderRadius('10px 20px 30px 40px');
+  assert(
+    borderRadius4.topLeft === 10 && borderRadius4.topRight === 20 &&
+    borderRadius4.bottomRight === 30 && borderRadius4.bottomLeft === 40,
+    'border-radius解析 - 四角独立'
+  );
+  
+  // 测试11: border-radius解析 - 单值
+  const borderRadius1 = parser.parseBorderRadius('15px');
+  assert(
+    borderRadius1.topLeft === 15 && borderRadius1.topRight === 15 &&
+    borderRadius1.bottomRight === 15 && borderRadius1.bottomLeft === 15,
+    'border-radius解析 - 单值'
+  );
+  
+  // 测试12: text-decoration解析
+  const deco = parser.parseTextDecoration('underline solid red 2px');
+  assert(deco.line === 'underline' && deco.style === 'solid', 'text-decoration解析');
+  
+  // 测试13: CSS变量
+  const varStyle = parser.parseStyle('--primary-color: #3498db; background: var(--primary-color);');
+  assert(parser.cssVariables.has('--primary-color'), 'CSS变量定义');
+  
+  // 测试14: 解析 CSS 变量引用
+  const varVal = parser.parseVar('var(--primary-color, #000)');
+  assert(varVal === '#3498db' || varVal === '#000', 'CSS变量引用解析');
+  
+  // 测试15: animation解析
+  const animation = parser.parseAnimation('pulse');
+  assert(animation.name === 'pulse', 'animation解析');
+  
+  // 测试16: line-height解析
+  const lh1 = parser.parseLineHeight('1.5');
+  assert(lh1 === 1.5, 'line-height解析 - 数值');
+  const lh2 = parser.parseLineHeight('24px');
+  assert(lh2 === 24, 'line-height解析 - 像素值');
 }
 
 // 布局引擎测试
@@ -227,7 +273,7 @@ async function testLayoutEngine() {
   // 测试3: 解析复杂样式
   const style = coldPath.parseStyle('background:linear-gradient(#1e88e5,#42a5f5); border-radius:12px; padding: 16px;');
   assert(style.gradient !== undefined, '复杂样式解析 - 渐变');
-  assert(style.borderRadius === 12, '复杂样式解析 - 圆角');
+  assert(typeof style.borderRadius === 'object' && style.borderRadius.topLeft === 12, '复杂样式解析 - 圆角');
   assert(style.padding !== undefined, '复杂样式解析 - padding');
   
   // 测试4: 布局任务生成
